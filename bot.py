@@ -153,12 +153,18 @@ def log_trade_raw(user_id: str, raw_trade: str):
 def log_trade_structured(
     user_id: str,
     instrument: str,
-    entry: str,
-    stop: str,
-    target: str,
+    entry: float,
+    stop: float,
+    target: float,
     setup: str,
-    result: str
+    exit_price: float
 ):
+    risk_pts = abs(entry - stop)
+    target_pts = abs(target - entry)
+    result_pts = exit_price - entry
+    planned_r = target_pts / risk_pts if risk_pts != 0 else 0
+    realized_r = result_pts / risk_pts if risk_pts != 0 else 0
+
     trades = get_trades()
     user_trades = trades.get(user_id, [])
 
@@ -169,12 +175,25 @@ def log_trade_structured(
         "stop": stop,
         "target": target,
         "setup": setup,
-        "result": result,
+        "exit_price": exit_price,
+        "risk_pts": risk_pts,
+        "target_pts": target_pts,
+        "result_pts": result_pts,
+        "planned_r": planned_r,
+        "realized_r": realized_r,
         "timestamp": datetime.utcnow().isoformat()
     })
 
     trades[user_id] = user_trades
     save_trades(trades)
+
+    return {
+        "risk_pts": risk_pts,
+        "target_pts": target_pts,
+        "result_pts": result_pts,
+        "planned_r": planned_r,
+        "realized_r": realized_r
+    }
 
 
 def build_profile_text(user_id: str) -> str:
@@ -230,36 +249,22 @@ def build_trade_stats(user_id: str) -> str:
     structured = [t for t in user_trades if t.get("type") == "structured"]
 
     if not structured:
-        return "No structured trades logged yet. Use `!architect trade-log MNQ 18450 18420 18520 breakout_retest 65`"
+        return "No structured trades logged yet. Use `!architect trade-log MNQ 18450 18420 18520 breakout_retest 18515`"
 
     total = len(structured)
+    wins = sum(1 for t in structured if t.get("result_pts", 0) > 0)
+    losses = sum(1 for t in structured if t.get("result_pts", 0) < 0)
+    breakeven = sum(1 for t in structured if t.get("result_pts", 0) == 0)
 
-    numeric_results = []
-    wins = 0
-    losses = 0
-    breakeven = 0
+    avg_result = sum(t.get("result_pts", 0) for t in structured) / total
+    avg_realized_r = sum(t.get("realized_r", 0) for t in structured) / total
+    avg_planned_r = sum(t.get("planned_r", 0) for t in structured) / total
+
     setup_counts = {}
-
     for trade in structured:
-        result_raw = str(trade.get("result", "")).replace("+", "").strip()
-
-        try:
-            result_num = float(result_raw)
-            numeric_results.append(result_num)
-
-            if result_num > 0:
-                wins += 1
-            elif result_num < 0:
-                losses += 1
-            else:
-                breakeven += 1
-        except Exception:
-            pass
-
         setup = trade.get("setup", "unknown")
         setup_counts[setup] = setup_counts.get(setup, 0) + 1
 
-    avg_result = sum(numeric_results) / len(numeric_results) if numeric_results else 0.0
     best_setup = max(setup_counts, key=setup_counts.get) if setup_counts else "N/A"
     win_rate = (wins / total) * 100 if total > 0 else 0
 
@@ -271,6 +276,8 @@ def build_trade_stats(user_id: str) -> str:
         f"- Breakeven: {breakeven}\n"
         f"- Win rate: {win_rate:.1f}%\n"
         f"- Average result (pts): {avg_result:.2f}\n"
+        f"- Average realized R: {avg_realized_r:.2f}\n"
+        f"- Average planned R: {avg_planned_r:.2f}\n"
         f"- Most used setup: {best_setup}"
     )
 
@@ -373,31 +380,36 @@ async def on_message(message: discord.Message):
 
             if len(parts) < 6:
                 await message.channel.send(
-                    "Usage: `!architect trade-log MNQ 18450 18420 18520 breakout_retest 65`"
+                    "Usage: `!architect trade-log MNQ 18450 18420 18520 breakout_retest 18515`"
                 )
                 return
 
             instrument = parts[0]
-            entry = parts[1]
-            stop = parts[2]
-            target = parts[3]
+            entry = float(parts[1])
+            stop = float(parts[2])
+            target = float(parts[3])
             setup = parts[4]
-            result = parts[5]
+            exit_price = float(parts[5])
 
-            log_trade_structured(
+            calc = log_trade_structured(
                 user_id=user_id,
                 instrument=instrument,
                 entry=entry,
                 stop=stop,
                 target=target,
                 setup=setup,
-                result=result
+                exit_price=exit_price
             )
 
             await message.channel.send(
-                f"Trade logged:\n"
-                f"{instrument} | Entry {entry} | Stop {stop} | Target {target}\n"
-                f"Setup: {setup} | Result: {result} pts"
+                "Trade logged:\n"
+                f"{instrument} | Entry {entry} | Stop {stop} | Target {target} | Exit {exit_price}\n"
+                f"Setup: {setup}\n"
+                f"Risk: {calc['risk_pts']:.2f} pts\n"
+                f"Target distance: {calc['target_pts']:.2f} pts\n"
+                f"Result: {calc['result_pts']:.2f} pts\n"
+                f"Planned R: {calc['planned_r']:.2f}\n"
+                f"Realized R: {calc['realized_r']:.2f}"
             )
             return
 
