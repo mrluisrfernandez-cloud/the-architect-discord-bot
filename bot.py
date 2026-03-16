@@ -254,7 +254,19 @@ def get_or_create_user_memory(user_id: str):
         "checkins": [],
         "pnl_logs": [],
         "wins": [],
-        "mistakes": []
+        "mistakes": [],
+        "sleep_logs": [],
+        "mood_logs": [],
+        "focus_logs": [],
+        "workouts": [],
+        "context": {
+            "week_mode": "",
+            "week_focus": [],
+            "training_mode": "",
+            "nutrition_mode": "",
+            "daily_goals": [],
+            "watchlist": []
+        }
     })
 
     user_data.setdefault("weights", [])
@@ -266,6 +278,17 @@ def get_or_create_user_memory(user_id: str):
     user_data.setdefault("pnl_logs", [])
     user_data.setdefault("wins", [])
     user_data.setdefault("mistakes", [])
+    user_data.setdefault("sleep_logs", [])
+    user_data.setdefault("mood_logs", [])
+    user_data.setdefault("focus_logs", [])
+    user_data.setdefault("workouts", [])
+    user_data.setdefault("context", {})
+    user_data["context"].setdefault("week_mode", "")
+    user_data["context"].setdefault("week_focus", [])
+    user_data["context"].setdefault("training_mode", "")
+    user_data["context"].setdefault("nutrition_mode", "")
+    user_data["context"].setdefault("daily_goals", [])
+    user_data["context"].setdefault("watchlist", [])
 
     return memory, user_data
 
@@ -361,6 +384,95 @@ def log_mistake(user_id: str, text: str):
         "date": today_utc(),
         "timestamp": utc_now_iso()
     })
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def log_sleep(user_id: str, hours: float):
+    memory, user_data = get_or_create_user_memory(user_id)
+    user_data["sleep_logs"].append({
+        "hours": hours,
+        "date": today_utc(),
+        "timestamp": utc_now_iso()
+    })
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def log_mood(user_id: str, score: float):
+    memory, user_data = get_or_create_user_memory(user_id)
+    user_data["mood_logs"].append({
+        "score": score,
+        "date": today_utc(),
+        "timestamp": utc_now_iso()
+    })
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def log_focus_score(user_id: str, score: float):
+    memory, user_data = get_or_create_user_memory(user_id)
+    user_data["focus_logs"].append({
+        "score": score,
+        "date": today_utc(),
+        "timestamp": utc_now_iso()
+    })
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def log_workout(user_id: str, workout_text: str):
+    memory, user_data = get_or_create_user_memory(user_id)
+    user_data["workouts"].append({
+        "text": workout_text,
+        "date": today_utc(),
+        "timestamp": utc_now_iso()
+    })
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def set_week_mode(user_id: str, mode: str):
+    memory, user_data = get_or_create_user_memory(user_id)
+    user_data["context"]["week_mode"] = mode
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def set_week_focus(user_id: str, focus_items):
+    memory, user_data = get_or_create_user_memory(user_id)
+    user_data["context"]["week_focus"] = focus_items
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def set_training_mode(user_id: str, mode: str):
+    memory, user_data = get_or_create_user_memory(user_id)
+    user_data["context"]["training_mode"] = mode
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def set_nutrition_mode(user_id: str, mode: str):
+    memory, user_data = get_or_create_user_memory(user_id)
+    user_data["context"]["nutrition_mode"] = mode
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def set_daily_goal(user_id: str, goal_text: str):
+    memory, user_data = get_or_create_user_memory(user_id)
+    user_data["context"]["daily_goals"].append({
+        "text": goal_text,
+        "timestamp": utc_now_iso()
+    })
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def set_watchlist(user_id: str, tickers):
+    memory, user_data = get_or_create_user_memory(user_id)
+    user_data["context"]["watchlist"] = tickers
     memory[user_id] = user_data
     save_memory(memory)
 
@@ -464,6 +576,10 @@ def build_daily_report(user_id: str):
     wins_today = [x for x in user_memory.get("wins", []) if x["date"] == today]
     mistakes_today = [x for x in user_memory.get("mistakes", []) if x["date"] == today]
     trades_today = [x for x in user_trades if x["timestamp"][:10] == today]
+    sleep_today = [x for x in user_memory.get("sleep_logs", []) if x["date"] == today]
+    mood_today = [x for x in user_memory.get("mood_logs", []) if x["date"] == today]
+    focus_today = [x for x in user_memory.get("focus_logs", []) if x["date"] == today]
+    workouts_today = [x for x in user_memory.get("workouts", []) if x["date"] == today]
 
     today_pnl_total = sum(x["value"] for x in pnl_today)
 
@@ -476,17 +592,141 @@ def build_daily_report(user_id: str):
             f"Focus {latest['focus']}"
         )
 
+    sleep_text = f"{sleep_today[-1]['hours']} hrs" if sleep_today else "No sleep logged"
+    mood_text = f"{mood_today[-1]['score']}" if mood_today else "No mood logged"
+    focus_text = f"{focus_today[-1]['score']}" if focus_today else "No focus logged"
+
     return (
         "Architect Daily System Report:\n"
         f"- Date: {today}\n"
+        f"- Sleep: {sleep_text}\n"
+        f"- Mood: {mood_text}\n"
+        f"- Focus: {focus_text}\n"
         f"- Check-in: {latest_checkin_text}\n"
         f"- Habits logged today: {len(habits_today)}\n"
+        f"- Workouts logged today: {len(workouts_today)}\n"
         f"- Notes saved today: {len(notes_today)}\n"
         f"- Ideas saved today: {len(ideas_today)}\n"
         f"- Wins logged today: {len(wins_today)}\n"
         f"- Mistakes logged today: {len(mistakes_today)}\n"
         f"- Trades logged today: {len(trades_today)}\n"
         f"- PnL today: {today_pnl_total:.2f}"
+    )
+
+
+def build_life_report(user_id: str):
+    memory = get_memory()
+    user_data = memory.get(user_id, {})
+
+    sleep_logs = user_data.get("sleep_logs", [])
+    mood_logs = user_data.get("mood_logs", [])
+    focus_logs = user_data.get("focus_logs", [])
+    workouts = user_data.get("workouts", [])
+    habits = user_data.get("habits", [])
+    notes = user_data.get("notes", [])
+    ideas = user_data.get("ideas", [])
+
+    if not sleep_logs and not mood_logs and not focus_logs and not workouts:
+        return "No life performance logs yet. Use `!architect log-sleep`, `!architect log-mood`, `!architect log-focus`, and `!architect log-workout`."
+
+    avg_sleep = (
+        sum(x["hours"] for x in sleep_logs) / len(sleep_logs) if sleep_logs else 0
+    )
+    avg_mood = (
+        sum(x["score"] for x in mood_logs) / len(mood_logs) if mood_logs else 0
+    )
+    avg_focus = (
+        sum(x["score"] for x in focus_logs) / len(focus_logs) if focus_logs else 0
+    )
+
+    return (
+        "Architect Life Performance Report:\n"
+        f"- Sleep logs: {len(sleep_logs)}\n"
+        f"- Average sleep: {avg_sleep:.2f} hrs\n"
+        f"- Mood logs: {len(mood_logs)}\n"
+        f"- Average mood: {avg_mood:.2f}\n"
+        f"- Focus logs: {len(focus_logs)}\n"
+        f"- Average focus: {avg_focus:.2f}\n"
+        f"- Workouts logged: {len(workouts)}\n"
+        f"- Habits logged: {len(habits)}\n"
+        f"- Notes captured: {len(notes)}\n"
+        f"- Ideas captured: {len(ideas)}"
+    )
+
+
+def build_week_plan(user_id: str):
+    memory = get_memory()
+    user_data = memory.get(user_id, {})
+    context = user_data.get("context", {})
+
+    week_mode = context.get("week_mode", "Not set")
+    week_focus = context.get("week_focus", [])
+    training_mode = context.get("training_mode", "Not set")
+    nutrition_mode = context.get("nutrition_mode", "Not set")
+    watchlist = context.get("watchlist", [])
+    daily_goals = context.get("daily_goals", [])
+
+    latest_goal = daily_goals[-1]["text"] if daily_goals else "No daily goal set"
+
+    focus_text = ", ".join(week_focus) if week_focus else "Not set"
+    watchlist_text = ", ".join(watchlist) if watchlist else "Not set"
+
+    return (
+        "Architect Week Plan:\n"
+        f"- Week mode: {week_mode}\n"
+        f"- Week focus: {focus_text}\n"
+        f"- Training mode: {training_mode}\n"
+        f"- Nutrition mode: {nutrition_mode}\n"
+        f"- Watchlist: {watchlist_text}\n"
+        f"- Latest daily goal: {latest_goal}"
+    )
+
+
+def build_morning_brief(user_id: str):
+    memory = get_memory()
+    user_data = memory.get(user_id, {})
+    context = user_data.get("context", {})
+
+    today = today_utc()
+    sleep_today = [x for x in user_data.get("sleep_logs", []) if x["date"] == today]
+    mood_today = [x for x in user_data.get("mood_logs", []) if x["date"] == today]
+    focus_today = [x for x in user_data.get("focus_logs", []) if x["date"] == today]
+
+    week_mode = context.get("week_mode", "Not set")
+    week_focus = context.get("week_focus", [])
+    training_mode = context.get("training_mode", "Not set")
+    nutrition_mode = context.get("nutrition_mode", "Not set")
+    watchlist = context.get("watchlist", [])
+    daily_goals = context.get("daily_goals", [])
+
+    sleep_text = f"{sleep_today[-1]['hours']} hrs" if sleep_today else "Not logged"
+    mood_text = f"{mood_today[-1]['score']}" if mood_today else "Not logged"
+    focus_text = f"{focus_today[-1]['score']}" if focus_today else "Not logged"
+    focus_area_text = ", ".join(week_focus) if week_focus else "Not set"
+    watchlist_text = ", ".join(watchlist) if watchlist else "Not set"
+    latest_goal = daily_goals[-1]["text"] if daily_goals else "No daily goal set"
+
+    recommendation = "Stay disciplined, execute the plan, and log your data."
+    if str(week_mode).lower() == "no-trading":
+        recommendation = "Trading mode is off this week. Focus on recovery, learning, fitness, and system refinement."
+    elif str(training_mode).lower() == "calisthenics":
+        recommendation = "Training mode is calisthenics. Get your volume done early and keep nutrition aligned with recovery."
+    elif str(training_mode).lower() == "hybrid":
+        recommendation = "Training mode is hybrid. Balance strength, conditioning, and recovery without losing consistency."
+
+    return (
+        "Architect Morning Brief:\n"
+        f"- Date: {today}\n"
+        f"- Week mode: {week_mode}\n"
+        f"- Week focus: {focus_area_text}\n"
+        f"- Training mode: {training_mode}\n"
+        f"- Nutrition mode: {nutrition_mode}\n"
+        f"- Daily goal: {latest_goal}\n"
+        f"- Watchlist: {watchlist_text}\n"
+        f"- Sleep: {sleep_text}\n"
+        f"- Mood: {mood_text}\n"
+        f"- Focus: {focus_text}\n"
+        f"- Recommendation: {recommendation}"
     )
 
 
@@ -606,6 +846,10 @@ def build_weekly_report(user_id: str) -> str:
     pnl_logs = user_memory.get("pnl_logs", [])
     wins = user_memory.get("wins", [])
     mistakes = user_memory.get("mistakes", [])
+    sleep_logs = user_memory.get("sleep_logs", [])
+    mood_logs = user_memory.get("mood_logs", [])
+    focus_logs = user_memory.get("focus_logs", [])
+    workouts = user_memory.get("workouts", [])
 
     report_lines = [
         "Weekly performance snapshot:",
@@ -613,6 +857,10 @@ def build_weekly_report(user_id: str) -> str:
         f"- Goals logged: {len(goals)}",
         f"- Habits logged: {len(habits)}",
         f"- Check-ins logged: {len(checkins)}",
+        f"- Sleep logs: {len(sleep_logs)}",
+        f"- Mood logs: {len(mood_logs)}",
+        f"- Focus logs: {len(focus_logs)}",
+        f"- Workout logs: {len(workouts)}",
         f"- PnL logs: {len(pnl_logs)}",
         f"- Wins logged: {len(wins)}",
         f"- Mistakes logged: {len(mistakes)}",
@@ -934,6 +1182,103 @@ async def on_message(message: discord.Message):
             )
             return
 
+        if command == "log-sleep":
+            if not body:
+                await message.channel.send("Usage: `!architect log-sleep 7.5`")
+                return
+            sleep_hours = float(body)
+            log_sleep(user_id, sleep_hours)
+            await message.channel.send(f"Sleep logged: {sleep_hours:.2f} hours")
+            return
+
+        if command == "log-mood":
+            if not body:
+                await message.channel.send("Usage: `!architect log-mood 8`")
+                return
+            mood_score = float(body)
+            log_mood(user_id, mood_score)
+            await message.channel.send(f"Mood logged: {mood_score:.2f}")
+            return
+
+        if command == "log-focus":
+            if not body:
+                await message.channel.send("Usage: `!architect log-focus 7`")
+                return
+            focus_score = float(body)
+            log_focus_score(user_id, focus_score)
+            await message.channel.send(f"Focus logged: {focus_score:.2f}")
+            return
+
+        if command == "log-workout":
+            if not body:
+                await message.channel.send("Usage: `!architect log-workout pushups 300`")
+                return
+            log_workout(user_id, body)
+            await message.channel.send(f"Workout logged: {body}")
+            return
+
+        if command == "life-report":
+            await message.channel.send(build_life_report(user_id))
+            return
+
+        if command == "set-week-mode":
+            if not body:
+                await message.channel.send("Usage: `!architect set-week-mode trading`")
+                return
+            set_week_mode(user_id, body)
+            await message.channel.send(f"Week mode set: {body}")
+            return
+
+        if command == "set-week-focus":
+            if not body:
+                await message.channel.send("Usage: `!architect set-week-focus trading fitness knowledge`")
+                return
+            focus_items = body.split()
+            set_week_focus(user_id, focus_items)
+            await message.channel.send(f"Week focus set: {', '.join(focus_items)}")
+            return
+
+        if command == "set-training-mode":
+            if not body:
+                await message.channel.send("Usage: `!architect set-training-mode calisthenics`")
+                return
+            set_training_mode(user_id, body)
+            await message.channel.send(f"Training mode set: {body}")
+            return
+
+        if command == "set-nutrition":
+            if not body:
+                await message.channel.send("Usage: `!architect set-nutrition lean-bulk`")
+                return
+            set_nutrition_mode(user_id, body)
+            await message.channel.send(f"Nutrition mode set: {body}")
+            return
+
+        if command == "set-daily-goal":
+            if not body:
+                await message.channel.send("Usage: `!architect set-daily-goal pushups 300`")
+                return
+            set_daily_goal(user_id, body)
+            await message.channel.send(f"Daily goal set: {body}")
+            return
+
+        if command == "watchlist":
+            if not body:
+                await message.channel.send("Usage: `!architect watchlist MNQ US30 TSLA`")
+                return
+            tickers = body.split()
+            set_watchlist(user_id, tickers)
+            await message.channel.send(f"Watchlist set: {', '.join(tickers)}")
+            return
+
+        if command == "week-plan":
+            await message.channel.send(build_week_plan(user_id))
+            return
+
+        if command == "morning-brief":
+            await message.channel.send(build_morning_brief(user_id))
+            return
+
         if command == "save-note":
             if not body:
                 await message.channel.send("Usage: `!architect save-note your note`")
@@ -977,7 +1322,7 @@ async def on_message(message: discord.Message):
 
         if command == "win":
             if not body:
-                await message.channel.send("Usage: `!architect win Executed trade with patience`")
+                await message.channel.send("Usage: `!architect win Executed with patience`")
                 return
             log_win(user_id, body)
             await message.channel.send(f"Win logged: {body}")
