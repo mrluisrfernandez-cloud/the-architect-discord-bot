@@ -1,7 +1,10 @@
 import os
 import json
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
 import discord
+from discord.ext import tasks
 from openai import OpenAI
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
@@ -16,6 +19,12 @@ bot = discord.Client(intents=intents)
 
 MEMORY_FILE = "memory.json"
 TRADES_FILE = "trades.json"
+GUILD_STATE_FILE = "guild_state.json"
+
+DR_TZ = ZoneInfo("America/Santo_Domingo")
+MORNING_BRIEF_CHANNEL_NAME = "mission-brief"
+MORNING_BRIEF_HOUR = 8
+MORNING_BRIEF_MINUTE = 0
 
 
 ARCHITECT_CORE_IDENTITY = """
@@ -77,6 +86,14 @@ def utc_now_iso():
 
 def today_utc():
     return datetime.now(timezone.utc).date().isoformat()
+
+
+def dr_now():
+    return datetime.now(DR_TZ)
+
+
+def today_dr():
+    return dr_now().date().isoformat()
 
 
 def load_json_file(path: str, default):
@@ -243,6 +260,35 @@ def save_trades(data):
     save_json_file(TRADES_FILE, data)
 
 
+def get_guild_state():
+    return load_json_file(GUILD_STATE_FILE, {})
+
+
+def save_guild_state(data):
+    save_json_file(GUILD_STATE_FILE, data)
+
+
+def ensure_guild_state(guild_id: str):
+    guild_state = get_guild_state()
+    current = guild_state.get(guild_id, {
+        "primary_user_id": "",
+        "last_morning_brief_date": ""
+    })
+
+    current.setdefault("primary_user_id", "")
+    current.setdefault("last_morning_brief_date", "")
+    guild_state[guild_id] = current
+    save_guild_state(guild_state)
+    return guild_state, current
+
+
+def register_guild_user(guild_id: str, user_id: str):
+    guild_state, current = ensure_guild_state(guild_id)
+    current["primary_user_id"] = user_id
+    guild_state[guild_id] = current
+    save_guild_state(guild_state)
+
+
 def get_or_create_user_memory(user_id: str):
     memory = get_memory()
     user_data = memory.get(user_id, {
@@ -392,7 +438,7 @@ def log_sleep(user_id: str, hours: float):
     memory, user_data = get_or_create_user_memory(user_id)
     user_data["sleep_logs"].append({
         "hours": hours,
-        "date": today_utc(),
+        "date": today_dr(),
         "timestamp": utc_now_iso()
     })
     memory[user_id] = user_data
@@ -403,7 +449,7 @@ def log_mood(user_id: str, score: float):
     memory, user_data = get_or_create_user_memory(user_id)
     user_data["mood_logs"].append({
         "score": score,
-        "date": today_utc(),
+        "date": today_dr(),
         "timestamp": utc_now_iso()
     })
     memory[user_id] = user_data
@@ -414,7 +460,7 @@ def log_focus_score(user_id: str, score: float):
     memory, user_data = get_or_create_user_memory(user_id)
     user_data["focus_logs"].append({
         "score": score,
-        "date": today_utc(),
+        "date": today_dr(),
         "timestamp": utc_now_iso()
     })
     memory[user_id] = user_data
@@ -425,7 +471,7 @@ def log_workout(user_id: str, workout_text: str):
     memory, user_data = get_or_create_user_memory(user_id)
     user_data["workouts"].append({
         "text": workout_text,
-        "date": today_utc(),
+        "date": today_dr(),
         "timestamp": utc_now_iso()
     })
     memory[user_id] = user_data
@@ -543,7 +589,7 @@ def build_pnl_report(user_id: str):
     best_day = max(pnl_logs, key=lambda x: x["value"])
     worst_day = min(pnl_logs, key=lambda x: x["value"])
 
-    today = today_utc()
+    today = today_dr()
     today_total = sum(x["value"] for x in pnl_logs if x["date"] == today)
 
     return (
@@ -566,7 +612,7 @@ def build_daily_report(user_id: str):
 
     user_memory = memory.get(user_id, {})
     user_trades = trades.get(user_id, [])
-    today = today_utc()
+    today = today_dr()
 
     habits_today = [x for x in user_memory.get("habits", []) if x["timestamp"][:10] == today]
     checkins_today = [x for x in user_memory.get("checkins", []) if x["timestamp"][:10] == today]
@@ -687,10 +733,19 @@ def build_morning_brief(user_id: str):
     user_data = memory.get(user_id, {})
     context = user_data.get("context", {})
 
-    today = today_utc()
+    today = today_dr()
+    today_pretty = dr_now().strftime("%A, %B %d, %Y")
+
     sleep_today = [x for x in user_data.get("sleep_logs", []) if x["date"] == today]
     mood_today = [x for x in user_data.get("mood_logs", []) if x["date"] == today]
     focus_today = [x for x in user_data.get("focus_logs", []) if x["date"] == today]
+
+    if not sleep_today:
+        sleep_today = user_data.get("sleep_logs", [])[-1:]
+    if not mood_today:
+        mood_today = user_data.get("mood_logs", [])[-1:]
+    if not focus_today:
+        focus_today = user_data.get("focus_logs", [])[-1:]
 
     week_mode = context.get("week_mode", "Not set")
     week_focus = context.get("week_focus", [])
@@ -716,7 +771,7 @@ def build_morning_brief(user_id: str):
 
     return (
         "Architect Morning Brief:\n"
-        f"- Date: {today}\n"
+        f"- Date: {today_pretty}\n"
         f"- Week mode: {week_mode}\n"
         f"- Week focus: {focus_area_text}\n"
         f"- Training mode: {training_mode}\n"
@@ -1083,6 +1138,40 @@ def build_mission_text() -> str:
     )
 
 
+def find_mission_brief_channel(guild: discord.Guild):
+    for channel in guild.text_channels:
+        if channel.name == MORNING_BRIEF_CHANNEL_NAME:
+            return channel
+    return None
+
+
+async def send_automatic_morning_brief(guild: discord.Guild):
+    guild_id = str(guild.id)
+    guild_state = get_guild_state()
+    state = guild_state.get(guild_id, {})
+
+    primary_user_id = state.get("primary_user_id", "").strip()
+    last_sent_date = state.get("last_morning_brief_date", "").strip()
+    today = today_dr()
+
+    if not primary_user_id:
+        return
+
+    if last_sent_date == today:
+        return
+
+    channel = find_mission_brief_channel(guild)
+    if channel is None:
+        return
+
+    brief = build_morning_brief(primary_user_id)
+    await channel.send(brief)
+
+    state["last_morning_brief_date"] = today
+    guild_state[guild_id] = state
+    save_guild_state(guild_state)
+
+
 async def run_ai_reply(message: discord.Message, prompt: str):
     system_prompt = get_channel_mode(message.channel.name)
 
@@ -1108,9 +1197,30 @@ async def run_ai_reply(message: discord.Message, prompt: str):
         await message.channel.send(reply)
 
 
+@tasks.loop(minutes=1)
+async def morning_brief_loop():
+    now = dr_now()
+
+    if now.hour != MORNING_BRIEF_HOUR or now.minute != MORNING_BRIEF_MINUTE:
+        return
+
+    for guild in bot.guilds:
+        try:
+            await send_automatic_morning_brief(guild)
+        except Exception as e:
+            print(f"Morning brief error in guild {guild.id}: {e}")
+
+
+@morning_brief_loop.before_loop
+async def before_morning_brief_loop():
+    await bot.wait_until_ready()
+
+
 @bot.event
 async def on_ready():
     print(f"Bot connected as {bot.user}")
+    if not morning_brief_loop.is_running():
+        morning_brief_loop.start()
 
 
 @bot.event
@@ -1131,6 +1241,9 @@ async def on_message(message: discord.Message):
 
     command, body = split_command_and_body(prompt)
     user_id = get_user_key(message)
+
+    if message.guild is not None:
+        register_guild_user(str(message.guild.id), user_id)
 
     try:
         if command == "mission":
