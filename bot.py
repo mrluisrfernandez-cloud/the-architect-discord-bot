@@ -1,4 +1,5 @@
 import os
+import re
 import discord
 from openai import OpenAI
 
@@ -60,18 +61,28 @@ def get_channel_mode(channel_name: str) -> str:
     )
 
 
+def strip_architect_prefix(content: str) -> str:
+    return content.replace("!architect", "", 1).strip()
+
+
+def strip_bot_mention(content: str, bot_id: int) -> str:
+    pattern = rf"^\s*<@!?{bot_id}>\s*"
+    return re.sub(pattern, "", content, count=1).strip()
+
+
+def is_bot_mention_message(content: str, bot_id: int) -> bool:
+    pattern = rf"^\s*<@!?{bot_id}>\b"
+    return re.match(pattern, content) is not None
+
+
 def extract_user_prompt(message: discord.Message) -> str:
     content = message.content.strip()
 
     if content.startswith("!architect"):
-        content = content.replace("!architect", "", 1).strip()
-        return content
+        return strip_architect_prefix(content)
 
-    if bot.user and bot.user.mentioned_in(message):
-        mention_1 = f"<@{bot.user.id}>"
-        mention_2 = f"<@!{bot.user.id}>"
-        content = content.replace(mention_1, "").replace(mention_2, "").strip()
-        return content
+    if bot.user and is_bot_mention_message(content, bot.user.id):
+        return strip_bot_mention(content, bot.user.id)
 
     return ""
 
@@ -86,8 +97,10 @@ async def on_message(message: discord.Message):
     if message.author == bot.user:
         return
 
-    is_command = message.content.strip().startswith("!architect")
-    is_mention = bot.user is not None and bot.user.mentioned_in(message)
+    content = message.content.strip()
+
+    is_command = content.startswith("!architect")
+    is_mention = bot.user is not None and is_bot_mention_message(content, bot.user.id)
 
     if not is_command and not is_mention:
         return
