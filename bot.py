@@ -1,6 +1,6 @@
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 import discord
 from openai import OpenAI
 
@@ -68,11 +68,15 @@ Always help Luis move toward:
 - consistency
 - intelligent self-correction
 - long-term growth
-
-When relevant, think like a high-performance advisor.
-When relevant, encourage systems over emotion.
-When relevant, turn vague thoughts into clear next steps.
 """
+
+
+def utc_now_iso():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def today_utc():
+    return datetime.now(timezone.utc).date().isoformat()
 
 
 def load_json_file(path: str, default):
@@ -247,7 +251,10 @@ def get_or_create_user_memory(user_id: str):
         "notes": [],
         "ideas": [],
         "habits": [],
-        "checkins": []
+        "checkins": [],
+        "pnl_logs": [],
+        "wins": [],
+        "mistakes": []
     })
 
     user_data.setdefault("weights", [])
@@ -256,80 +263,104 @@ def get_or_create_user_memory(user_id: str):
     user_data.setdefault("ideas", [])
     user_data.setdefault("habits", [])
     user_data.setdefault("checkins", [])
+    user_data.setdefault("pnl_logs", [])
+    user_data.setdefault("wins", [])
+    user_data.setdefault("mistakes", [])
 
     return memory, user_data
 
 
 def log_weight(user_id: str, value: str):
     memory, user_data = get_or_create_user_memory(user_id)
-
     user_data["weights"].append({
         "value": value,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": utc_now_iso()
     })
-
     memory[user_id] = user_data
     save_memory(memory)
 
 
 def log_goal(user_id: str, goal: str):
     memory, user_data = get_or_create_user_memory(user_id)
-
     user_data["goals"].append({
         "text": goal,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": utc_now_iso()
     })
-
     memory[user_id] = user_data
     save_memory(memory)
 
 
 def log_habit(user_id: str, habit_text: str):
     memory, user_data = get_or_create_user_memory(user_id)
-
     user_data["habits"].append({
         "text": habit_text,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": utc_now_iso()
     })
-
     memory[user_id] = user_data
     save_memory(memory)
 
 
 def log_checkin(user_id: str, energy: str, motivation: str, focus: str):
     memory, user_data = get_or_create_user_memory(user_id)
-
     user_data["checkins"].append({
         "energy": energy,
         "motivation": motivation,
         "focus": focus,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": utc_now_iso()
     })
-
     memory[user_id] = user_data
     save_memory(memory)
 
 
 def log_note(user_id: str, note: str):
     memory, user_data = get_or_create_user_memory(user_id)
-
     user_data["notes"].append({
         "text": note,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": utc_now_iso()
     })
-
     memory[user_id] = user_data
     save_memory(memory)
 
 
 def log_idea(user_id: str, idea: str):
     memory, user_data = get_or_create_user_memory(user_id)
-
     user_data["ideas"].append({
         "text": idea,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": utc_now_iso()
     })
+    memory[user_id] = user_data
+    save_memory(memory)
 
+
+def log_pnl(user_id: str, pnl_value: float):
+    memory, user_data = get_or_create_user_memory(user_id)
+    user_data["pnl_logs"].append({
+        "value": pnl_value,
+        "date": today_utc(),
+        "timestamp": utc_now_iso()
+    })
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def log_win(user_id: str, text: str):
+    memory, user_data = get_or_create_user_memory(user_id)
+    user_data["wins"].append({
+        "text": text,
+        "date": today_utc(),
+        "timestamp": utc_now_iso()
+    })
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def log_mistake(user_id: str, text: str):
+    memory, user_data = get_or_create_user_memory(user_id)
+    user_data["mistakes"].append({
+        "text": text,
+        "date": today_utc(),
+        "timestamp": utc_now_iso()
+    })
     memory[user_id] = user_data
     save_memory(memory)
 
@@ -337,7 +368,6 @@ def log_idea(user_id: str, idea: str):
 def show_notes(user_id: str):
     memory = get_memory()
     user_data = memory.get(user_id, {})
-
     notes = user_data.get("notes", [])
 
     if not notes:
@@ -346,14 +376,12 @@ def show_notes(user_id: str):
     text = "Saved notes:\n"
     for note in notes[-10:]:
         text += f"- {note['text']}\n"
-
     return text
 
 
 def show_ideas(user_id: str):
     memory = get_memory()
     user_data = memory.get(user_id, {})
-
     ideas = user_data.get("ideas", [])
 
     if not ideas:
@@ -362,14 +390,12 @@ def show_ideas(user_id: str):
     text = "Saved ideas:\n"
     for idea in ideas[-10:]:
         text += f"- {idea['text']}\n"
-
     return text
 
 
 def build_knowledge_report(user_id: str):
     memory = get_memory()
     user_data = memory.get(user_id, {})
-
     notes = user_data.get("notes", [])
     ideas = user_data.get("ideas", [])
 
@@ -388,6 +414,82 @@ def build_knowledge_report(user_id: str):
     return report
 
 
+def build_pnl_report(user_id: str):
+    memory = get_memory()
+    user_data = memory.get(user_id, {})
+    pnl_logs = user_data.get("pnl_logs", [])
+
+    if not pnl_logs:
+        return "No PnL logs saved yet. Use `!architect log-pnl 250`"
+
+    total = sum(x["value"] for x in pnl_logs)
+    avg_day = total / len(pnl_logs)
+    green_days = sum(1 for x in pnl_logs if x["value"] > 0)
+    red_days = sum(1 for x in pnl_logs if x["value"] < 0)
+    flat_days = sum(1 for x in pnl_logs if x["value"] == 0)
+
+    best_day = max(pnl_logs, key=lambda x: x["value"])
+    worst_day = min(pnl_logs, key=lambda x: x["value"])
+
+    today = today_utc()
+    today_total = sum(x["value"] for x in pnl_logs if x["date"] == today)
+
+    return (
+        "PnL Report:\n"
+        f"- Days logged: {len(pnl_logs)}\n"
+        f"- Today: {today_total:.2f}\n"
+        f"- Total PnL: {total:.2f}\n"
+        f"- Average day: {avg_day:.2f}\n"
+        f"- Green days: {green_days}\n"
+        f"- Red days: {red_days}\n"
+        f"- Flat days: {flat_days}\n"
+        f"- Best day: {best_day['value']:.2f} ({best_day['date']})\n"
+        f"- Worst day: {worst_day['value']:.2f} ({worst_day['date']})"
+    )
+
+
+def build_daily_report(user_id: str):
+    memory = get_memory()
+    trades = get_trades()
+
+    user_memory = memory.get(user_id, {})
+    user_trades = trades.get(user_id, [])
+    today = today_utc()
+
+    habits_today = [x for x in user_memory.get("habits", []) if x["timestamp"][:10] == today]
+    checkins_today = [x for x in user_memory.get("checkins", []) if x["timestamp"][:10] == today]
+    notes_today = [x for x in user_memory.get("notes", []) if x["timestamp"][:10] == today]
+    ideas_today = [x for x in user_memory.get("ideas", []) if x["timestamp"][:10] == today]
+    pnl_today = [x for x in user_memory.get("pnl_logs", []) if x["date"] == today]
+    wins_today = [x for x in user_memory.get("wins", []) if x["date"] == today]
+    mistakes_today = [x for x in user_memory.get("mistakes", []) if x["date"] == today]
+    trades_today = [x for x in user_trades if x["timestamp"][:10] == today]
+
+    today_pnl_total = sum(x["value"] for x in pnl_today)
+
+    latest_checkin_text = "No check-in today"
+    if checkins_today:
+        latest = checkins_today[-1]
+        latest_checkin_text = (
+            f"Energy {latest['energy']} | "
+            f"Motivation {latest['motivation']} | "
+            f"Focus {latest['focus']}"
+        )
+
+    return (
+        "Architect Daily System Report:\n"
+        f"- Date: {today}\n"
+        f"- Check-in: {latest_checkin_text}\n"
+        f"- Habits logged today: {len(habits_today)}\n"
+        f"- Notes saved today: {len(notes_today)}\n"
+        f"- Ideas saved today: {len(ideas_today)}\n"
+        f"- Wins logged today: {len(wins_today)}\n"
+        f"- Mistakes logged today: {len(mistakes_today)}\n"
+        f"- Trades logged today: {len(trades_today)}\n"
+        f"- PnL today: {today_pnl_total:.2f}"
+    )
+
+
 def log_trade_raw(user_id: str, raw_trade: str):
     trades = get_trades()
     user_trades = trades.get(user_id, [])
@@ -395,7 +497,7 @@ def log_trade_raw(user_id: str, raw_trade: str):
     user_trades.append({
         "type": "raw_review",
         "raw": raw_trade,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": utc_now_iso()
     })
 
     trades[user_id] = user_trades
@@ -433,7 +535,7 @@ def log_trade_structured(
         "result_pts": result_pts,
         "planned_r": planned_r,
         "realized_r": realized_r,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": utc_now_iso()
     })
 
     trades[user_id] = user_trades
@@ -501,6 +603,9 @@ def build_weekly_report(user_id: str) -> str:
     goals = user_memory.get("goals", [])
     habits = user_memory.get("habits", [])
     checkins = user_memory.get("checkins", [])
+    pnl_logs = user_memory.get("pnl_logs", [])
+    wins = user_memory.get("wins", [])
+    mistakes = user_memory.get("mistakes", [])
 
     report_lines = [
         "Weekly performance snapshot:",
@@ -508,6 +613,9 @@ def build_weekly_report(user_id: str) -> str:
         f"- Goals logged: {len(goals)}",
         f"- Habits logged: {len(habits)}",
         f"- Check-ins logged: {len(checkins)}",
+        f"- PnL logs: {len(pnl_logs)}",
+        f"- Wins logged: {len(wins)}",
+        f"- Mistakes logged: {len(mistakes)}",
         f"- Trades logged: {len(user_trades)}",
     ]
 
@@ -852,6 +960,39 @@ async def on_message(message: discord.Message):
 
         if command == "knowledge-report":
             await message.channel.send(build_knowledge_report(user_id))
+            return
+
+        if command == "log-pnl":
+            if not body:
+                await message.channel.send("Usage: `!architect log-pnl 250`")
+                return
+            pnl_value = float(body)
+            log_pnl(user_id, pnl_value)
+            await message.channel.send(f"PnL logged: {pnl_value:.2f}")
+            return
+
+        if command == "pnl-report":
+            await message.channel.send(build_pnl_report(user_id))
+            return
+
+        if command == "win":
+            if not body:
+                await message.channel.send("Usage: `!architect win Executed trade with patience`")
+                return
+            log_win(user_id, body)
+            await message.channel.send(f"Win logged: {body}")
+            return
+
+        if command == "mistake":
+            if not body:
+                await message.channel.send("Usage: `!architect mistake Entered before confirmation`")
+                return
+            log_mistake(user_id, body)
+            await message.channel.send(f"Mistake logged: {body}")
+            return
+
+        if command == "daily-report":
+            await message.channel.send(build_daily_report(user_id))
             return
 
         if command == "show-profile":
