@@ -136,12 +136,40 @@ def log_goal(user_id: str, goal: str):
     save_memory(memory)
 
 
-def log_trade(user_id: str, raw_trade: str):
+def log_trade_raw(user_id: str, raw_trade: str):
     trades = get_trades()
     user_trades = trades.get(user_id, [])
 
     user_trades.append({
+        "type": "raw_review",
         "raw": raw_trade,
+        "timestamp": datetime.utcnow().isoformat()
+    })
+
+    trades[user_id] = user_trades
+    save_trades(trades)
+
+
+def log_trade_structured(
+    user_id: str,
+    instrument: str,
+    entry: str,
+    stop: str,
+    target: str,
+    setup: str,
+    result: str
+):
+    trades = get_trades()
+    user_trades = trades.get(user_id, [])
+
+    user_trades.append({
+        "type": "structured",
+        "instrument": instrument,
+        "entry": entry,
+        "stop": stop,
+        "target": target,
+        "setup": setup,
+        "result": result,
         "timestamp": datetime.utcnow().isoformat()
     })
 
@@ -195,6 +223,58 @@ def build_weekly_report(user_id: str) -> str:
     return "\n".join(report_lines)
 
 
+def build_trade_stats(user_id: str) -> str:
+    trades = get_trades()
+    user_trades = trades.get(user_id, [])
+
+    structured = [t for t in user_trades if t.get("type") == "structured"]
+
+    if not structured:
+        return "No structured trades logged yet. Use `!architect trade-log MNQ 18450 18420 18520 breakout_retest 65`"
+
+    total = len(structured)
+
+    numeric_results = []
+    wins = 0
+    losses = 0
+    breakeven = 0
+    setup_counts = {}
+
+    for trade in structured:
+        result_raw = str(trade.get("result", "")).replace("+", "").strip()
+
+        try:
+            result_num = float(result_raw)
+            numeric_results.append(result_num)
+
+            if result_num > 0:
+                wins += 1
+            elif result_num < 0:
+                losses += 1
+            else:
+                breakeven += 1
+        except Exception:
+            pass
+
+        setup = trade.get("setup", "unknown")
+        setup_counts[setup] = setup_counts.get(setup, 0) + 1
+
+    avg_result = sum(numeric_results) / len(numeric_results) if numeric_results else 0.0
+    best_setup = max(setup_counts, key=setup_counts.get) if setup_counts else "N/A"
+    win_rate = (wins / total) * 100 if total > 0 else 0
+
+    return (
+        "Trading stats:\n"
+        f"- Total structured trades: {total}\n"
+        f"- Wins: {wins}\n"
+        f"- Losses: {losses}\n"
+        f"- Breakeven: {breakeven}\n"
+        f"- Win rate: {win_rate:.1f}%\n"
+        f"- Average result (pts): {avg_result:.2f}\n"
+        f"- Most used setup: {best_setup}"
+    )
+
+
 async def run_ai_reply(message: discord.Message, prompt: str):
     system_prompt = get_channel_mode(message.channel.name)
 
@@ -238,9 +318,7 @@ async def on_message(message: discord.Message):
     prompt = extract_prompt(content)
 
     if not prompt:
-        await message.channel.send(
-            "Give me something after `!architect`."
-        )
+        await message.channel.send("Give me something after `!architect`.")
         return
 
     command, body = split_command_and_body(prompt)
@@ -280,7 +358,7 @@ async def on_message(message: discord.Message):
                 )
                 return
 
-            log_trade(user_id, body)
+            log_trade_raw(user_id, body)
 
             review_prompt = (
                 "Review this trade like a sharp trading coach. "
@@ -288,6 +366,44 @@ async def on_message(message: discord.Message):
                 f"Trade:\n{body}"
             )
             await run_ai_reply(message, review_prompt)
+            return
+
+        if command == "trade-log":
+            parts = body.split()
+
+            if len(parts) < 6:
+                await message.channel.send(
+                    "Usage: `!architect trade-log MNQ 18450 18420 18520 breakout_retest 65`"
+                )
+                return
+
+            instrument = parts[0]
+            entry = parts[1]
+            stop = parts[2]
+            target = parts[3]
+            setup = parts[4]
+            result = parts[5]
+
+            log_trade_structured(
+                user_id=user_id,
+                instrument=instrument,
+                entry=entry,
+                stop=stop,
+                target=target,
+                setup=setup,
+                result=result
+            )
+
+            await message.channel.send(
+                f"Trade logged:\n"
+                f"{instrument} | Entry {entry} | Stop {stop} | Target {target}\n"
+                f"Setup: {setup} | Result: {result} pts"
+            )
+            return
+
+        if command == "stats":
+            stats = build_trade_stats(user_id)
+            await message.channel.send(stats)
             return
 
         await run_ai_reply(message, prompt)
