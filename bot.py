@@ -64,7 +64,8 @@ def extract_user_prompt(message: discord.Message) -> str:
     content = message.content.strip()
 
     if content.startswith("!architect"):
-        return content.replace("!architect", "", 1).strip()
+        content = content.replace("!architect", "", 1).strip()
+        return content
 
     if bot.user and bot.user.mentioned_in(message):
         mention_1 = f"<@{bot.user.id}>"
