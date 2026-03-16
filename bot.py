@@ -22,7 +22,15 @@ TRADES_FILE = "trades.json"
 GUILD_STATE_FILE = "guild_state.json"
 
 DR_TZ = ZoneInfo("America/Santo_Domingo")
-MORNING_BRIEF_CHANNEL_NAME = "mission-brief"
+
+CHANNELS = {
+    "mission_brief": "mission-brief",
+    "daily_checkin": "daily-checkin",
+    "weekly_review": "weekly-review",
+    "performance_report": "performance-report",
+    "system_analysis": "system-analysis",
+}
+
 MORNING_BRIEF_HOUR = 8
 MORNING_BRIEF_MINUTE = 0
 
@@ -118,7 +126,7 @@ def get_user_key(message: discord.Message) -> str:
 def get_department_prompt(channel_name: str) -> str:
     name = (channel_name or "").lower()
 
-    if "trading" in name:
+    if "trading" in name or name in ["market-prep", "chart-review", "market-notes"]:
         return """
 You are currently operating inside the Trading Desk department.
 
@@ -133,7 +141,7 @@ Priority:
 Respond like a sharp trading coach and strategist.
 Be practical, structured, and direct.
 """
-    if "fitness" in name:
+    if "fitness" in name or name in ["fitness-log", "training-protocol", "supplement-stack"]:
         return """
 You are currently operating inside the Fitness Lab department.
 
@@ -147,7 +155,7 @@ Priority:
 Respond like a practical performance coach.
 Be structured, motivating, and realistic.
 """
-    if "nutrition" in name:
+    if "nutrition" in name or name in ["meal-log", "meal-architect"]:
         return """
 You are currently operating inside the Nutrition Lab department.
 
@@ -161,7 +169,7 @@ Priority:
 Respond like a practical nutrition coach.
 Keep advice simple, useful, and repeatable.
 """
-    if "knowledge" in name:
+    if "knowledge" in name or name in ["reading-log", "pdf-archive"]:
         return """
 You are currently operating inside the Knowledge Vault department.
 
@@ -175,7 +183,7 @@ Priority:
 Respond like a strategist and knowledge architect.
 Help turn information into usable insight.
 """
-    if "builder" in name:
+    if "builder" in name or name in ["project-builder", "research-lab"]:
         return """
 You are currently operating inside the Builder Lab department.
 
@@ -189,7 +197,7 @@ Priority:
 Respond like an execution advisor and builder.
 Help turn ideas into next steps and systems.
 """
-    if "cosmic" in name or "reflection" in name:
+    if "cosmic" in name or "reflection" in name or name in ["daily-alignment", "cosmic-notes", "life-design"]:
         return """
 You are currently operating inside the Cosmic Reflection department.
 
@@ -203,7 +211,7 @@ Priority:
 Respond with depth, calm, and grounded wisdom.
 Be reflective but still practical.
 """
-    if "analysis" in name or "performance" in name:
+    if "analysis" in name or "performance" in name or name in ["system-analysis", "performance-report"]:
         return """
 You are currently operating inside the Architect Analysis / Performance department.
 
@@ -405,7 +413,7 @@ def log_pnl(user_id: str, pnl_value: float):
     memory, user_data = get_or_create_user_memory(user_id)
     user_data["pnl_logs"].append({
         "value": pnl_value,
-        "date": today_utc(),
+        "date": today_dr(),
         "timestamp": utc_now_iso()
     })
     memory[user_id] = user_data
@@ -416,7 +424,7 @@ def log_win(user_id: str, text: str):
     memory, user_data = get_or_create_user_memory(user_id)
     user_data["wins"].append({
         "text": text,
-        "date": today_utc(),
+        "date": today_dr(),
         "timestamp": utc_now_iso()
     })
     memory[user_id] = user_data
@@ -427,7 +435,7 @@ def log_mistake(user_id: str, text: str):
     memory, user_data = get_or_create_user_memory(user_id)
     user_data["mistakes"].append({
         "text": text,
-        "date": today_utc(),
+        "date": today_dr(),
         "timestamp": utc_now_iso()
     })
     memory[user_id] = user_data
@@ -1138,11 +1146,18 @@ def build_mission_text() -> str:
     )
 
 
-def find_mission_brief_channel(guild: discord.Guild):
+def find_text_channel_by_name(guild: discord.Guild, channel_name: str):
     for channel in guild.text_channels:
-        if channel.name == MORNING_BRIEF_CHANNEL_NAME:
+        if channel.name == channel_name:
             return channel
     return None
+
+
+def get_system_channel(guild: discord.Guild, key: str):
+    channel_name = CHANNELS.get(key, "")
+    if not channel_name:
+        return None
+    return find_text_channel_by_name(guild, channel_name)
 
 
 async def send_automatic_morning_brief(guild: discord.Guild):
@@ -1160,7 +1175,7 @@ async def send_automatic_morning_brief(guild: discord.Guild):
     if last_sent_date == today:
         return
 
-    channel = find_mission_brief_channel(guild)
+    channel = get_system_channel(guild, "mission_brief")
     if channel is None:
         return
 
