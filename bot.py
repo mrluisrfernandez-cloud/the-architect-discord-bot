@@ -104,13 +104,15 @@ def save_trades(data):
 
 def get_or_create_user_memory(user_id: str):
     memory = get_memory()
-    user_data = memory.get(user_id, {
-        "weights": [],
-        "goals": [],
-        "notes": [],
-        "habits": [],
-        "checkins": []
-    })
+   user_data = memory.get(user_id, {
+    "weights": [],
+    "goals": [],
+    "notes": [],
+    "ideas": [],
+    "habits": [],
+    "checkins": []
+})
+    
     return memory, user_data
 
 
