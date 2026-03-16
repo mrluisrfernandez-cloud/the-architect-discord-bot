@@ -32,7 +32,7 @@ async def on_message(message):
             input=prompt
         )
 
-        reply = response.output[0].content[0].text
+        reply = response.output_text
 
         await message.channel.send(reply)
 
