@@ -297,6 +297,13 @@ def register_guild_user(guild_id: str, user_id: str):
     save_guild_state(guild_state)
 
 
+def set_last_morning_brief_date(guild_id: str, date_text: str):
+    guild_state, current = ensure_guild_state(guild_id)
+    current["last_morning_brief_date"] = date_text
+    guild_state[guild_id] = current
+    save_guild_state(guild_state)
+
+
 def get_or_create_user_memory(user_id: str):
     memory = get_memory()
     user_data = memory.get(user_id, {
@@ -1187,6 +1194,18 @@ async def send_automatic_morning_brief(guild: discord.Guild):
     save_guild_state(guild_state)
 
 
+async def post_morning_brief_to_system_channel(guild: discord.Guild, user_id: str):
+    channel = get_system_channel(guild, "mission_brief")
+    if channel is None:
+        return False, "I couldn’t find `#mission-brief` in this server."
+
+    brief = build_morning_brief(user_id)
+    await channel.send(brief)
+
+    set_last_morning_brief_date(str(guild.id), today_dr())
+    return True, f"Morning brief posted in #{channel.name}."
+
+
 async def run_ai_reply(message: discord.Message, prompt: str):
     system_prompt = get_channel_mode(message.channel.name)
 
@@ -1263,6 +1282,15 @@ async def on_message(message: discord.Message):
     try:
         if command == "mission":
             await message.channel.send(build_mission_text())
+            return
+
+        if command == "post-morning-brief":
+            if message.guild is None:
+                await message.channel.send("This command must be used inside your Discord server.")
+                return
+
+            ok, result_text = await post_morning_brief_to_system_channel(message.guild, user_id)
+            await message.channel.send(result_text)
             return
 
         if command == "log-weight":
