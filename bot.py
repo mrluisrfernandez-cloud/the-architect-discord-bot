@@ -196,6 +196,12 @@ def log_trade_structured(
     }
 
 
+def get_structured_trades(user_id: str):
+    trades = get_trades()
+    user_trades = trades.get(user_id, [])
+    return [t for t in user_trades if t.get("type") == "structured"]
+
+
 def build_profile_text(user_id: str) -> str:
     memory = get_memory()
     trades = get_trades()
@@ -243,10 +249,7 @@ def build_weekly_report(user_id: str) -> str:
 
 
 def build_trade_stats(user_id: str) -> str:
-    trades = get_trades()
-    user_trades = trades.get(user_id, [])
-
-    structured = [t for t in user_trades if t.get("type") == "structured"]
+    structured = get_structured_trades(user_id)
 
     if not structured:
         return "No structured trades logged yet. Use `!architect trade-log MNQ 18450 18420 18520 breakout_retest 18515`"
@@ -279,6 +282,53 @@ def build_trade_stats(user_id: str) -> str:
         f"- Average realized R: {avg_realized_r:.2f}\n"
         f"- Average planned R: {avg_planned_r:.2f}\n"
         f"- Most used setup: {best_setup}"
+    )
+
+
+def build_dashboard(user_id: str) -> str:
+    structured = get_structured_trades(user_id)
+
+    if not structured:
+        return "No structured trades logged yet. Use `!architect trade-log MNQ 18450 18420 18520 breakout_retest 18515`"
+
+    total = len(structured)
+    wins = sum(1 for t in structured if t.get("result_pts", 0) > 0)
+    losses = sum(1 for t in structured if t.get("result_pts", 0) < 0)
+    breakeven = sum(1 for t in structured if t.get("result_pts", 0) == 0)
+
+    total_points = sum(t.get("result_pts", 0) for t in structured)
+    total_realized_r = sum(t.get("realized_r", 0) for t in structured)
+
+    avg_result = total_points / total if total > 0 else 0
+    avg_realized_r = total_realized_r / total if total > 0 else 0
+    avg_planned_r = sum(t.get("planned_r", 0) for t in structured) / total if total > 0 else 0
+    win_rate = (wins / total) * 100 if total > 0 else 0
+
+    best_trade = max(structured, key=lambda t: t.get("result_pts", 0))
+    worst_trade = min(structured, key=lambda t: t.get("result_pts", 0))
+
+    setup_counts = {}
+    for trade in structured:
+        setup = trade.get("setup", "unknown")
+        setup_counts[setup] = setup_counts.get(setup, 0) + 1
+
+    best_setup = max(setup_counts, key=setup_counts.get) if setup_counts else "N/A"
+
+    return (
+        "Architect Trading Dashboard:\n"
+        f"- Total structured trades: {total}\n"
+        f"- Wins: {wins}\n"
+        f"- Losses: {losses}\n"
+        f"- Breakeven: {breakeven}\n"
+        f"- Win rate: {win_rate:.1f}%\n"
+        f"- Total points: {total_points:.2f}\n"
+        f"- Total realized R: {total_realized_r:.2f}\n"
+        f"- Average result (pts): {avg_result:.2f}\n"
+        f"- Average realized R: {avg_realized_r:.2f}\n"
+        f"- Average planned R: {avg_planned_r:.2f}\n"
+        f"- Most used setup: {best_setup}\n"
+        f"- Best trade: {best_trade.get('instrument', 'N/A')} | {best_trade.get('setup', 'N/A')} | {best_trade.get('result_pts', 0):.2f} pts | {best_trade.get('realized_r', 0):.2f}R\n"
+        f"- Worst trade: {worst_trade.get('instrument', 'N/A')} | {worst_trade.get('setup', 'N/A')} | {worst_trade.get('result_pts', 0):.2f} pts | {worst_trade.get('realized_r', 0):.2f}R"
     )
 
 
@@ -416,6 +466,11 @@ async def on_message(message: discord.Message):
         if command == "stats":
             stats = build_trade_stats(user_id)
             await message.channel.send(stats)
+            return
+
+        if command == "dashboard":
+            dashboard = build_dashboard(user_id)
+            await message.channel.send(dashboard)
             return
 
         await run_ai_reply(message, prompt)
