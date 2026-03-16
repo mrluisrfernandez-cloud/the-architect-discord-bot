@@ -320,6 +320,7 @@ def get_or_create_user_memory(user_id: str):
         "mood_logs": [],
         "focus_logs": [],
         "workouts": [],
+        "body_baseline": {},
         "context": {
             "week_mode": "",
             "week_focus": [],
@@ -343,6 +344,7 @@ def get_or_create_user_memory(user_id: str):
     user_data.setdefault("mood_logs", [])
     user_data.setdefault("focus_logs", [])
     user_data.setdefault("workouts", [])
+    user_data.setdefault("body_baseline", {})
     user_data.setdefault("context", {})
     user_data["context"].setdefault("week_mode", "")
     user_data["context"].setdefault("week_focus", [])
@@ -375,6 +377,81 @@ def has_meaningful_brief_data(user_id: str) -> bool:
     ])
 
     return has_context or has_logs
+
+
+def set_body_baseline(
+    user_id: str,
+    weight_lb: float,
+    body_fat_percent: float,
+    bmi: float,
+    skeletal_muscle_percent: float,
+    muscle_mass_lb: float,
+    muscle_storage_ability_level: int,
+    protein_percent: float,
+    bmr_kcal: float,
+    fat_free_body_weight_lb: float,
+    subcutaneous_fat_percent: float,
+    visceral_fat: int,
+    body_water_percent: float,
+    bone_mass_lb: float,
+    body_type: str,
+    metabolic_age: int
+):
+    memory, user_data = get_or_create_user_memory(user_id)
+
+    user_data["body_baseline"] = {
+        "weight_lb": weight_lb,
+        "body_fat_percent": body_fat_percent,
+        "bmi": bmi,
+        "skeletal_muscle_percent": skeletal_muscle_percent,
+        "muscle_mass_lb": muscle_mass_lb,
+        "muscle_storage_ability_level": muscle_storage_ability_level,
+        "protein_percent": protein_percent,
+        "bmr_kcal": bmr_kcal,
+        "fat_free_body_weight_lb": fat_free_body_weight_lb,
+        "subcutaneous_fat_percent": subcutaneous_fat_percent,
+        "visceral_fat": visceral_fat,
+        "body_water_percent": body_water_percent,
+        "bone_mass_lb": bone_mass_lb,
+        "body_type": body_type,
+        "metabolic_age": metabolic_age,
+        "timestamp": utc_now_iso()
+    }
+
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def build_body_baseline_report(user_id: str) -> str:
+    memory = get_memory()
+    user_data = memory.get(user_id, {})
+    baseline = user_data.get("body_baseline", {})
+
+    if not baseline:
+        return (
+            "No body baseline saved yet.\n"
+            "Use:\n"
+            "`!architect set-body-baseline 221.6 31 32.8 44.5 145.2 3 15.8 1867 152.8 26.6 15 49.8 7.6 Heavy 45`"
+        )
+
+    return (
+        "Architect Body Baseline:\n"
+        f"- Weight: {baseline.get('weight_lb', 0):.1f} lb\n"
+        f"- Body Fat: {baseline.get('body_fat_percent', 0):.1f}%\n"
+        f"- BMI: {baseline.get('bmi', 0):.1f}\n"
+        f"- Skeletal Muscle: {baseline.get('skeletal_muscle_percent', 0):.1f}%\n"
+        f"- Muscle Mass: {baseline.get('muscle_mass_lb', 0):.1f} lb\n"
+        f"- Muscle Storage Ability Level: {baseline.get('muscle_storage_ability_level', 0)}\n"
+        f"- Protein: {baseline.get('protein_percent', 0):.1f}%\n"
+        f"- BMR: {baseline.get('bmr_kcal', 0):.0f} kcal\n"
+        f"- Fat-Free Body Weight: {baseline.get('fat_free_body_weight_lb', 0):.1f} lb\n"
+        f"- Subcutaneous Fat: {baseline.get('subcutaneous_fat_percent', 0):.1f}%\n"
+        f"- Visceral Fat: {baseline.get('visceral_fat', 0)}\n"
+        f"- Body Water: {baseline.get('body_water_percent', 0):.1f}%\n"
+        f"- Bone Mass: {baseline.get('bone_mass_lb', 0):.1f} lb\n"
+        f"- Body Type: {baseline.get('body_type', 'Not set')}\n"
+        f"- Metabolic Age: {baseline.get('metabolic_age', 0)}"
+    )
 
 
 def log_weight(user_id: str, value: str):
@@ -709,9 +786,10 @@ def build_life_report(user_id: str):
     habits = user_data.get("habits", [])
     notes = user_data.get("notes", [])
     ideas = user_data.get("ideas", [])
+    body_baseline = user_data.get("body_baseline", {})
 
-    if not sleep_logs and not mood_logs and not focus_logs and not workouts:
-        return "No life performance logs yet. Use `!architect log-sleep`, `!architect log-mood`, `!architect log-focus`, and `!architect log-workout`."
+    if not sleep_logs and not mood_logs and not focus_logs and not workouts and not body_baseline:
+        return "No life performance logs yet. Use `!architect log-sleep`, `!architect log-mood`, `!architect log-focus`, `!architect log-workout`, and `!architect set-body-baseline`."
 
     avg_sleep = (
         sum(x["hours"] for x in sleep_logs) / len(sleep_logs) if sleep_logs else 0
@@ -723,8 +801,20 @@ def build_life_report(user_id: str):
         sum(x["score"] for x in focus_logs) / len(focus_logs) if focus_logs else 0
     )
 
+    weight_line = ""
+    bodyfat_line = ""
+    bmi_line = ""
+
+    if body_baseline:
+        weight_line = f"- Baseline weight: {body_baseline.get('weight_lb', 0):.1f} lb\n"
+        bodyfat_line = f"- Baseline body fat: {body_baseline.get('body_fat_percent', 0):.1f}%\n"
+        bmi_line = f"- Baseline BMI: {body_baseline.get('bmi', 0):.1f}\n"
+
     return (
         "Architect Life Performance Report:\n"
+        f"{weight_line}"
+        f"{bodyfat_line}"
+        f"{bmi_line}"
         f"- Sleep logs: {len(sleep_logs)}\n"
         f"- Average sleep: {avg_sleep:.2f} hrs\n"
         f"- Mood logs: {len(mood_logs)}\n"
@@ -770,6 +860,7 @@ def build_morning_brief(user_id: str):
     memory = get_memory()
     user_data = memory.get(user_id, {})
     context = user_data.get("context", {})
+    body_baseline = user_data.get("body_baseline", {})
 
     today = today_dr()
     today_pretty = dr_now().strftime("%A, %B %d, %Y")
@@ -807,9 +898,18 @@ def build_morning_brief(user_id: str):
     elif str(training_mode).lower() == "hybrid":
         recommendation = "Training mode is hybrid. Balance strength, conditioning, and recovery without losing consistency."
 
+    body_line = ""
+    if body_baseline:
+        body_line = (
+            f"- Body baseline: {body_baseline.get('weight_lb', 0):.1f} lb | "
+            f"BF {body_baseline.get('body_fat_percent', 0):.1f}% | "
+            f"BMI {body_baseline.get('bmi', 0):.1f}\n"
+        )
+
     return (
         "Architect Morning Brief:\n"
         f"- Date: {today_pretty}\n"
+        f"{body_line}"
         f"- Week mode: {week_mode}\n"
         f"- Week focus: {focus_area_text}\n"
         f"- Training mode: {training_mode}\n"
@@ -900,6 +1000,7 @@ def build_profile_text(user_id: str) -> str:
     goals = user_memory.get("goals", [])
     habits = user_memory.get("habits", [])
     checkins = user_memory.get("checkins", [])
+    body_baseline = user_memory.get("body_baseline", {})
 
     latest_weight = weights[-1]["value"] if weights else "No weight logged yet"
     latest_goal = goals[-1]["text"] if goals else "No goal logged yet"
@@ -915,8 +1016,17 @@ def build_profile_text(user_id: str) -> str:
     else:
         latest_checkin_text = "No check-in logged yet"
 
+    baseline_line = ""
+    if body_baseline:
+        baseline_line = (
+            f"- Body baseline: {body_baseline.get('weight_lb', 0):.1f} lb | "
+            f"BF {body_baseline.get('body_fat_percent', 0):.1f}% | "
+            f"BMI {body_baseline.get('bmi', 0):.1f}\n"
+        )
+
     return (
         "Profile snapshot:\n"
+        f"{baseline_line}"
         f"- Latest weight: {latest_weight}\n"
         f"- Latest goal: {latest_goal}\n"
         f"- Latest habit: {latest_habit}\n"
@@ -943,6 +1053,7 @@ def build_weekly_report(user_id: str) -> str:
     mood_logs = user_memory.get("mood_logs", [])
     focus_logs = user_memory.get("focus_logs", [])
     workouts = user_memory.get("workouts", [])
+    body_baseline = user_memory.get("body_baseline", {})
 
     report_lines = [
         "Weekly performance snapshot:",
@@ -960,6 +1071,10 @@ def build_weekly_report(user_id: str) -> str:
         f"- Trades logged: {len(user_trades)}",
     ]
 
+    if body_baseline:
+        report_lines.append(
+            f"- Body baseline: {body_baseline.get('weight_lb', 0):.1f} lb | BF {body_baseline.get('body_fat_percent', 0):.1f}% | BMI {body_baseline.get('bmi', 0):.1f}"
+        )
     if weights:
         report_lines.append(f"- Latest weight: {weights[-1]['value']}")
     if goals:
@@ -1323,6 +1438,67 @@ async def on_message(message: discord.Message):
 
             ok, result_text = await post_morning_brief_to_system_channel(message.guild, user_id)
             await message.channel.send(result_text)
+            return
+
+        if command == "set-body-baseline":
+            parts = body.split()
+
+            if len(parts) < 15:
+                await message.channel.send(
+                    "Usage: `!architect set-body-baseline 221.6 31 32.8 44.5 145.2 3 15.8 1867 152.8 26.6 15 49.8 7.6 Heavy 45`"
+                )
+                return
+
+            weight_lb = float(parts[0])
+            body_fat_percent = float(parts[1])
+            bmi = float(parts[2])
+            skeletal_muscle_percent = float(parts[3])
+            muscle_mass_lb = float(parts[4])
+            muscle_storage_ability_level = int(float(parts[5]))
+            protein_percent = float(parts[6])
+            bmr_kcal = float(parts[7])
+            fat_free_body_weight_lb = float(parts[8])
+            subcutaneous_fat_percent = float(parts[9])
+            visceral_fat = int(float(parts[10]))
+            body_water_percent = float(parts[11])
+            bone_mass_lb = float(parts[12])
+            body_type = parts[13]
+            metabolic_age = int(float(parts[14]))
+
+            set_body_baseline(
+                user_id=user_id,
+                weight_lb=weight_lb,
+                body_fat_percent=body_fat_percent,
+                bmi=bmi,
+                skeletal_muscle_percent=skeletal_muscle_percent,
+                muscle_mass_lb=muscle_mass_lb,
+                muscle_storage_ability_level=muscle_storage_ability_level,
+                protein_percent=protein_percent,
+                bmr_kcal=bmr_kcal,
+                fat_free_body_weight_lb=fat_free_body_weight_lb,
+                subcutaneous_fat_percent=subcutaneous_fat_percent,
+                visceral_fat=visceral_fat,
+                body_water_percent=body_water_percent,
+                bone_mass_lb=bone_mass_lb,
+                body_type=body_type,
+                metabolic_age=metabolic_age
+            )
+
+            await message.channel.send(
+                "Body baseline saved:\n"
+                f"- Weight: {weight_lb:.1f} lb\n"
+                f"- Body Fat: {body_fat_percent:.1f}%\n"
+                f"- BMI: {bmi:.1f}\n"
+                f"- Skeletal Muscle: {skeletal_muscle_percent:.1f}%\n"
+                f"- Muscle Mass: {muscle_mass_lb:.1f} lb\n"
+                f"- BMR: {bmr_kcal:.0f} kcal\n"
+                f"- Body Type: {body_type}\n"
+                f"- Metabolic Age: {metabolic_age}"
+            )
+            return
+
+        if command == "body-baseline":
+            await message.channel.send(build_body_baseline_report(user_id))
             return
 
         if command == "log-weight":
