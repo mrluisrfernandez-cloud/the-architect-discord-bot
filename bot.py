@@ -354,6 +354,29 @@ def get_or_create_user_memory(user_id: str):
     return memory, user_data
 
 
+def has_meaningful_brief_data(user_id: str) -> bool:
+    memory = get_memory()
+    user_data = memory.get(user_id, {})
+    context = user_data.get("context", {})
+
+    has_context = any([
+        context.get("week_mode"),
+        context.get("week_focus"),
+        context.get("training_mode"),
+        context.get("nutrition_mode"),
+        context.get("daily_goals"),
+        context.get("watchlist"),
+    ])
+
+    has_logs = any([
+        user_data.get("sleep_logs"),
+        user_data.get("mood_logs"),
+        user_data.get("focus_logs"),
+    ])
+
+    return has_context or has_logs
+
+
 def log_weight(user_id: str, value: str):
     memory, user_data = get_or_create_user_memory(user_id)
     user_data["weights"].append({
@@ -1182,6 +1205,10 @@ async def send_automatic_morning_brief(guild: discord.Guild):
     if last_sent_date == today:
         return
 
+    if not has_meaningful_brief_data(primary_user_id):
+        print(f"Morning brief skipped for guild {guild.id}: primary user has no meaningful brief data.")
+        return
+
     channel = get_system_channel(guild, "mission_brief")
     if channel is None:
         return
@@ -1198,6 +1225,11 @@ async def post_morning_brief_to_system_channel(guild: discord.Guild, user_id: st
     channel = get_system_channel(guild, "mission_brief")
     if channel is None:
         return False, "I couldn’t find `#mission-brief` in this server."
+
+    register_guild_user(str(guild.id), user_id)
+
+    if not has_meaningful_brief_data(user_id):
+        return False, "I found `#mission-brief`, but your Architect profile for this user is blank right now. I stopped the post so it wouldn’t publish empty defaults."
 
     brief = build_morning_brief(user_id)
     await channel.send(brief)
