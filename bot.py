@@ -102,13 +102,20 @@ def save_trades(data):
     save_json_file(TRADES_FILE, data)
 
 
-def log_weight(user_id: str, value: str):
+def get_or_create_user_memory(user_id: str):
     memory = get_memory()
     user_data = memory.get(user_id, {
         "weights": [],
         "goals": [],
-        "notes": []
+        "notes": [],
+        "habits": [],
+        "checkins": []
     })
+    return memory, user_data
+
+
+def log_weight(user_id: str, value: str):
+    memory, user_data = get_or_create_user_memory(user_id)
 
     user_data["weights"].append({
         "value": value,
@@ -120,15 +127,36 @@ def log_weight(user_id: str, value: str):
 
 
 def log_goal(user_id: str, goal: str):
-    memory = get_memory()
-    user_data = memory.get(user_id, {
-        "weights": [],
-        "goals": [],
-        "notes": []
-    })
+    memory, user_data = get_or_create_user_memory(user_id)
 
     user_data["goals"].append({
         "text": goal,
+        "timestamp": datetime.utcnow().isoformat()
+    })
+
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def log_habit(user_id: str, habit_text: str):
+    memory, user_data = get_or_create_user_memory(user_id)
+
+    user_data["habits"].append({
+        "text": habit_text,
+        "timestamp": datetime.utcnow().isoformat()
+    })
+
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def log_checkin(user_id: str, energy: str, motivation: str, focus: str):
+    memory, user_data = get_or_create_user_memory(user_id)
+
+    user_data["checkins"].append({
+        "energy": energy,
+        "motivation": motivation,
+        "focus": focus,
         "timestamp": datetime.utcnow().isoformat()
     })
 
@@ -211,14 +239,29 @@ def build_profile_text(user_id: str) -> str:
 
     weights = user_memory.get("weights", [])
     goals = user_memory.get("goals", [])
+    habits = user_memory.get("habits", [])
+    checkins = user_memory.get("checkins", [])
 
     latest_weight = weights[-1]["value"] if weights else "No weight logged yet"
     latest_goal = goals[-1]["text"] if goals else "No goal logged yet"
+    latest_habit = habits[-1]["text"] if habits else "No habits logged yet"
+
+    if checkins:
+        latest_checkin = checkins[-1]
+        latest_checkin_text = (
+            f"Energy {latest_checkin['energy']} | "
+            f"Motivation {latest_checkin['motivation']} | "
+            f"Focus {latest_checkin['focus']}"
+        )
+    else:
+        latest_checkin_text = "No check-in logged yet"
 
     return (
         f"Profile snapshot:\n"
         f"- Latest weight: {latest_weight}\n"
         f"- Latest goal: {latest_goal}\n"
+        f"- Latest habit: {latest_habit}\n"
+        f"- Latest check-in: {latest_checkin_text}\n"
         f"- Total trades logged: {len(user_trades)}"
     )
 
@@ -232,11 +275,15 @@ def build_weekly_report(user_id: str) -> str:
 
     weights = user_memory.get("weights", [])
     goals = user_memory.get("goals", [])
+    habits = user_memory.get("habits", [])
+    checkins = user_memory.get("checkins", [])
 
     report_lines = [
         "Weekly performance snapshot:",
         f"- Weight logs: {len(weights)}",
         f"- Goals logged: {len(goals)}",
+        f"- Habits logged: {len(habits)}",
+        f"- Check-ins logged: {len(checkins)}",
         f"- Trades logged: {len(user_trades)}",
     ]
 
@@ -244,6 +291,13 @@ def build_weekly_report(user_id: str) -> str:
         report_lines.append(f"- Latest weight: {weights[-1]['value']}")
     if goals:
         report_lines.append(f"- Latest goal: {goals[-1]['text']}")
+    if habits:
+        report_lines.append(f"- Latest habit: {habits[-1]['text']}")
+    if checkins:
+        latest_checkin = checkins[-1]
+        report_lines.append(
+            f"- Latest check-in: Energy {latest_checkin['energy']} | Motivation {latest_checkin['motivation']} | Focus {latest_checkin['focus']}"
+        )
 
     return "\n".join(report_lines)
 
@@ -353,7 +407,7 @@ def build_coach_report(user_id: str) -> str:
             setup_stats[setup] = {
                 "count": 0,
                 "wins": 0,
-                "total_r": 0
+                "total_r": 0.0
             }
 
         setup_stats[setup]["count"] += 1
@@ -362,7 +416,6 @@ def build_coach_report(user_id: str) -> str:
         if t.get("result_pts", 0) > 0:
             setup_stats[setup]["wins"] += 1
 
-    best_setup = None
     best_setup_text = "Not enough data"
     if setup_stats:
         best_setup = max(
@@ -500,6 +553,35 @@ async def on_message(message: discord.Message):
                 return
             log_goal(user_id, body)
             await message.channel.send(f"Logged goal: {body}")
+            return
+
+        if command == "log-habit":
+            if not body:
+                await message.channel.send("Usage: `!architect log-habit cardio complete`")
+                return
+            log_habit(user_id, body)
+            await message.channel.send(f"Logged habit: {body}")
+            return
+
+        if command == "checkin":
+            parts = body.split()
+
+            if len(parts) < 6:
+                await message.channel.send("Usage: `!architect checkin energy 8 motivation 7 focus 9`")
+                return
+
+            try:
+                energy_value = parts[1]
+                motivation_value = parts[3]
+                focus_value = parts[5]
+            except Exception:
+                await message.channel.send("Usage: `!architect checkin energy 8 motivation 7 focus 9`")
+                return
+
+            log_checkin(user_id, energy_value, motivation_value, focus_value)
+            await message.channel.send(
+                f"Check-in logged: Energy {energy_value} | Motivation {motivation_value} | Focus {focus_value}"
+            )
             return
 
         if command == "show-profile":
