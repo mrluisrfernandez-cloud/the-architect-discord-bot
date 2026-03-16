@@ -332,6 +332,110 @@ def build_dashboard(user_id: str) -> str:
     )
 
 
+def build_coach_report(user_id: str) -> str:
+    structured = get_structured_trades(user_id)
+
+    if not structured:
+        return "No structured trades logged yet. Use `!architect trade-log MNQ 18450 18420 18520 breakout_retest 18515`"
+
+    total = len(structured)
+    wins = [t for t in structured if t.get("result_pts", 0) > 0]
+    losses = [t for t in structured if t.get("result_pts", 0) < 0]
+
+    avg_planned_r = sum(t.get("planned_r", 0) for t in structured) / total
+    avg_realized_r = sum(t.get("realized_r", 0) for t in structured) / total
+    capture_ratio = (avg_realized_r / avg_planned_r) if avg_planned_r != 0 else 0
+
+    setup_stats = {}
+    for t in structured:
+        setup = t.get("setup", "unknown")
+        if setup not in setup_stats:
+            setup_stats[setup] = {
+                "count": 0,
+                "wins": 0,
+                "total_r": 0
+            }
+
+        setup_stats[setup]["count"] += 1
+        setup_stats[setup]["total_r"] += t.get("realized_r", 0)
+
+        if t.get("result_pts", 0) > 0:
+            setup_stats[setup]["wins"] += 1
+
+    best_setup = None
+    best_setup_text = "Not enough data"
+    if setup_stats:
+        best_setup = max(
+            setup_stats.items(),
+            key=lambda item: (
+                (item[1]["wins"] / item[1]["count"]) if item[1]["count"] > 0 else 0,
+                item[1]["total_r"]
+            )
+        )
+
+        setup_name = best_setup[0]
+        setup_count = best_setup[1]["count"]
+        setup_win_rate = (best_setup[1]["wins"] / setup_count) * 100 if setup_count > 0 else 0
+        setup_avg_r = best_setup[1]["total_r"] / setup_count if setup_count > 0 else 0
+
+        best_setup_text = (
+            f"{setup_name} | Trades: {setup_count} | Win rate: {setup_win_rate:.1f}% | Avg R: {setup_avg_r:.2f}"
+        )
+
+    coaching_points = []
+
+    if capture_ratio < 0.7:
+        coaching_points.append(
+            "You may be cutting winners early. Your average realized R is much lower than your average planned R."
+        )
+    elif capture_ratio < 0.9:
+        coaching_points.append(
+            "You are capturing a decent portion of your planned reward, but there is still room to improve trade management."
+        )
+    else:
+        coaching_points.append(
+            "You are capturing most of your planned reward well. That suggests solid follow-through on trade management."
+        )
+
+    if len(losses) > len(wins):
+        coaching_points.append(
+            "Losses currently outnumber wins. Tighten selectivity and make sure you are only taking your best setups."
+        )
+    elif len(wins) > len(losses):
+        coaching_points.append(
+            "Wins currently outnumber losses. Keep protecting discipline so good execution does not get diluted by random trades."
+        )
+
+    if total < 5:
+        coaching_points.append(
+            "Sample size is still small. Focus on logging trades consistently before making big strategic conclusions."
+        )
+    else:
+        coaching_points.append(
+            "You now have enough data to start identifying behavior patterns instead of judging yourself off one trade."
+        )
+
+    biggest_win = max(structured, key=lambda t: t.get("realized_r", 0))
+    biggest_loss = min(structured, key=lambda t: t.get("realized_r", 0))
+
+    return (
+        "Architect Coach Report:\n"
+        f"- Total structured trades reviewed: {total}\n"
+        f"- Average planned R: {avg_planned_r:.2f}\n"
+        f"- Average realized R: {avg_realized_r:.2f}\n"
+        f"- Reward capture ratio: {capture_ratio:.2f}\n"
+        f"- Best setup so far: {best_setup_text}\n"
+        f"- Biggest winner: {biggest_win.get('instrument', 'N/A')} | {biggest_win.get('setup', 'N/A')} | {biggest_win.get('realized_r', 0):.2f}R\n"
+        f"- Biggest loser: {biggest_loss.get('instrument', 'N/A')} | {biggest_loss.get('setup', 'N/A')} | {biggest_loss.get('realized_r', 0):.2f}R\n"
+        "\nKey coaching notes:\n"
+        + "\n".join([f"- {point}" for point in coaching_points]) +
+        "\n\nNext focus:\n"
+        "- Keep logging every trade.\n"
+        "- Compare your best setup against all others after 10+ trades.\n"
+        "- Watch whether realized R keeps lagging planned R."
+    )
+
+
 async def run_ai_reply(message: discord.Message, prompt: str):
     system_prompt = get_channel_mode(message.channel.name)
 
@@ -471,6 +575,11 @@ async def on_message(message: discord.Message):
         if command == "dashboard":
             dashboard = build_dashboard(user_id)
             await message.channel.send(dashboard)
+            return
+
+        if command == "coach":
+            coach_report = build_coach_report(user_id)
+            await message.channel.send(coach_report)
             return
 
         await run_ai_reply(message, prompt)
