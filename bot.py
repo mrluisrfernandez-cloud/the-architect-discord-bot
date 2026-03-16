@@ -1,5 +1,6 @@
 import os
-import re
+import json
+from datetime import datetime
 import discord
 from openai import OpenAI
 
@@ -13,6 +14,28 @@ intents.message_content = True
 
 bot = discord.Client(intents=intents)
 
+MEMORY_FILE = "memory.json"
+TRADES_FILE = "trades.json"
+
+
+def load_json_file(path: str, default):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return default
+    except Exception:
+        return default
+
+
+def save_json_file(path: str, data):
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+
+def get_user_key(message: discord.Message) -> str:
+    return str(message.author.id)
+
 
 def get_channel_mode(channel_name: str) -> str:
     name = (channel_name or "").lower()
@@ -21,7 +44,7 @@ def get_channel_mode(channel_name: str) -> str:
         return (
             "You are Architect in Trading Desk mode. "
             "Help with trading psychology, futures, options, risk, structure, journaling, and execution. "
-            "Be practical, clear, and disciplined. Do not be reckless."
+            "Be practical, clear, and disciplined."
         )
     if "fitness" in name:
         return (
@@ -34,18 +57,6 @@ def get_channel_mode(channel_name: str) -> str:
             "You are Architect in Nutrition Lab mode. "
             "Help with meals, macros, simple meal prep, healthy food choices, and consistency. "
             "Be practical and easy to follow."
-        )
-    if "builder" in name:
-        return (
-            "You are Architect in Builder Lab mode. "
-            "Help with business ideas, coding, systems, workflows, ecommerce, and building projects. "
-            "Be strategic, structured, and creative."
-        )
-    if "cosmic" in name:
-        return (
-            "You are Architect in Cosmic Reflection mode. "
-            "Help with reflection, mindset, journaling, spiritual perspective, and thoughtful motivation. "
-            "Be poetic but grounded."
         )
     if "performance" in name:
         return (
@@ -61,30 +72,152 @@ def get_channel_mode(channel_name: str) -> str:
     )
 
 
-def strip_architect_prefix(content: str) -> str:
+def extract_prompt(content: str) -> str:
     return content.replace("!architect", "", 1).strip()
 
 
-def strip_bot_mention(content: str, bot_id: int) -> str:
-    pattern = rf"^\s*<@!?{bot_id}>\s*"
-    return re.sub(pattern, "", content, count=1).strip()
+def split_command_and_body(prompt: str):
+    if not prompt:
+        return "", ""
+
+    parts = prompt.split(" ", 1)
+    command = parts[0].strip().lower()
+    body = parts[1].strip() if len(parts) > 1 else ""
+    return command, body
 
 
-def is_bot_mention_message(content: str, bot_id: int) -> bool:
-    pattern = rf"^\s*<@!?{bot_id}>\b"
-    return re.match(pattern, content) is not None
+def get_memory():
+    return load_json_file(MEMORY_FILE, {})
 
 
-def extract_user_prompt(message: discord.Message) -> str:
-    content = message.content.strip()
+def save_memory(data):
+    save_json_file(MEMORY_FILE, data)
 
-    if content.startswith("!architect"):
-        return strip_architect_prefix(content)
 
-    if bot.user and is_bot_mention_message(content, bot.user.id):
-        return strip_bot_mention(content, bot.user.id)
+def get_trades():
+    return load_json_file(TRADES_FILE, {})
 
-    return ""
+
+def save_trades(data):
+    save_json_file(TRADES_FILE, data)
+
+
+def log_weight(user_id: str, value: str):
+    memory = get_memory()
+    user_data = memory.get(user_id, {
+        "weights": [],
+        "goals": [],
+        "notes": []
+    })
+
+    user_data["weights"].append({
+        "value": value,
+        "timestamp": datetime.utcnow().isoformat()
+    })
+
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def log_goal(user_id: str, goal: str):
+    memory = get_memory()
+    user_data = memory.get(user_id, {
+        "weights": [],
+        "goals": [],
+        "notes": []
+    })
+
+    user_data["goals"].append({
+        "text": goal,
+        "timestamp": datetime.utcnow().isoformat()
+    })
+
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def log_trade(user_id: str, raw_trade: str):
+    trades = get_trades()
+    user_trades = trades.get(user_id, [])
+
+    user_trades.append({
+        "raw": raw_trade,
+        "timestamp": datetime.utcnow().isoformat()
+    })
+
+    trades[user_id] = user_trades
+    save_trades(trades)
+
+
+def build_profile_text(user_id: str) -> str:
+    memory = get_memory()
+    trades = get_trades()
+
+    user_memory = memory.get(user_id, {})
+    user_trades = trades.get(user_id, [])
+
+    weights = user_memory.get("weights", [])
+    goals = user_memory.get("goals", [])
+
+    latest_weight = weights[-1]["value"] if weights else "No weight logged yet"
+    latest_goal = goals[-1]["text"] if goals else "No goal logged yet"
+
+    return (
+        f"Profile snapshot:\n"
+        f"- Latest weight: {latest_weight}\n"
+        f"- Latest goal: {latest_goal}\n"
+        f"- Total trades logged: {len(user_trades)}"
+    )
+
+
+def build_weekly_report(user_id: str) -> str:
+    memory = get_memory()
+    trades = get_trades()
+
+    user_memory = memory.get(user_id, {})
+    user_trades = trades.get(user_id, [])
+
+    weights = user_memory.get("weights", [])
+    goals = user_memory.get("goals", [])
+
+    report_lines = [
+        "Weekly performance snapshot:",
+        f"- Weight logs: {len(weights)}",
+        f"- Goals logged: {len(goals)}",
+        f"- Trades logged: {len(user_trades)}",
+    ]
+
+    if weights:
+        report_lines.append(f"- Latest weight: {weights[-1]['value']}")
+    if goals:
+        report_lines.append(f"- Latest goal: {goals[-1]['text']}")
+
+    return "\n".join(report_lines)
+
+
+async def run_ai_reply(message: discord.Message, prompt: str):
+    system_prompt = get_channel_mode(message.channel.name)
+
+    async with message.channel.typing():
+        response = client.responses.create(
+            model="gpt-5-mini",
+            input=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt},
+            ],
+        )
+
+    reply = response.output_text
+
+    if not reply or not reply.strip():
+        reply = "I understood you, but I didn’t get usable text back. Try rewording that."
+
+    if len(reply) > 1900:
+        chunks = [reply[i:i + 1900] for i in range(0, len(reply), 1900)]
+        for chunk in chunks:
+            await message.channel.send(chunk)
+    else:
+        await message.channel.send(reply)
 
 
 @bot.event
@@ -99,43 +232,65 @@ async def on_message(message: discord.Message):
 
     content = message.content.strip()
 
-    is_command = content.startswith("!architect")
-    is_mention = bot.user is not None and is_bot_mention_message(content, bot.user.id)
-
-    if not is_command and not is_mention:
+    if not content.startswith("!architect"):
         return
 
-    prompt = extract_user_prompt(message)
+    prompt = extract_prompt(content)
 
     if not prompt:
         await message.channel.send(
-            "Give me something after `!architect` or mention me with a question."
+            "Give me something after `!architect`."
         )
         return
 
-    system_prompt = get_channel_mode(message.channel.name)
+    command, body = split_command_and_body(prompt)
+    user_id = get_user_key(message)
 
     try:
-        async with message.channel.typing():
-            response = client.responses.create(
-                model="gpt-5-mini",
-                input=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": prompt},
-                ],
+        if command == "log-weight":
+            if not body:
+                await message.channel.send("Usage: `!architect log-weight 186.4`")
+                return
+            log_weight(user_id, body)
+            await message.channel.send(f"Logged weight: {body}")
+            return
+
+        if command == "log-goal":
+            if not body:
+                await message.channel.send("Usage: `!architect log-goal Stay disciplined this week`")
+                return
+            log_goal(user_id, body)
+            await message.channel.send(f"Logged goal: {body}")
+            return
+
+        if command == "show-profile":
+            profile = build_profile_text(user_id)
+            await message.channel.send(profile)
+            return
+
+        if command == "weekly-report":
+            report = build_weekly_report(user_id)
+            await message.channel.send(report)
+            return
+
+        if command == "trade-review":
+            if not body:
+                await message.channel.send(
+                    "Usage: `!architect trade-review Instrument: MNQ | Entry: 18450 | Stop: 18420 | Target: 18520 | Reason: breakout retest | Result: +65 pts`"
+                )
+                return
+
+            log_trade(user_id, body)
+
+            review_prompt = (
+                "Review this trade like a sharp trading coach. "
+                "Identify strengths, weaknesses, discipline issues, risk issues, and next-step improvements.\n\n"
+                f"Trade:\n{body}"
             )
+            await run_ai_reply(message, review_prompt)
+            return
 
-        reply = response.output_text
-
-        if not reply or not reply.strip():
-            reply = "I understood you, but I didn’t get usable text back. Try rewording that."
-
-        if len(reply) > 1900:
-            chunks = [reply[i:i + 1900] for i in range(0, len(reply), 1900)]
-            for chunk in chunks:
-                await message.channel.send(chunk)
-        else:
-            await message.channel.send(reply)
+        await run_ai_reply(message, prompt)
 
     except Exception as e:
         print(f"Error in on_message: {e}")
