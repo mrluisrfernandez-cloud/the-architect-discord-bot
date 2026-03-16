@@ -88,6 +88,130 @@ Always help Luis move toward:
 """
 
 
+WEEKLY_WORKOUT_LIBRARY = {
+    "monday": {
+        "title": "Full Body Strength + Chest/Core",
+        "focus": "strength, chest, lower body, pull, core",
+        "gym": [
+            "Barbell or DB Bench Press - 4x6-8",
+            "Incline Press or Push-Ups - 3x12",
+            "Goblet Squats or Front Squats - 4x10",
+            "Pull-Ups or TRX Rows - 3x10",
+            "Plank to Push-Up + Weighted Sit-Ups - 3x15",
+        ],
+        "home": [
+            "Weighted or Tempo Push-Ups - 4x8-12",
+            "Incline Push-Ups or Feet Elevated Push-Ups - 3x12",
+            "Goblet Squats or Bodyweight Tempo Squats - 4x10-15",
+            "TRX Rows or Doorframe Rows - 3x10-12",
+            "Plank to Push-Up + Sit-Ups - 3x15",
+        ],
+    },
+    "tuesday": {
+        "title": "Core + HIIT Conditioning",
+        "focus": "conditioning, abs, mobility",
+        "gym": [
+            "Jump Rope HIIT - 5 rounds x 45 sec",
+            "Hollow Holds or V-Ups - 3x30 sec",
+            "Hanging Leg Raises - 3x15",
+            "Flutter Kicks - 4x20 sec",
+            "Pigeon Stretch + Hip Mobility - 10 min",
+        ],
+        "home": [
+            "Jump Rope HIIT or Fast Step-Ups - 5 rounds x 45 sec",
+            "Hollow Holds or V-Ups - 3x30 sec",
+            "Lying Leg Raises - 3x15",
+            "Flutter Kicks - 4x20 sec",
+            "Pigeon Stretch + Hip Mobility - 10 min",
+        ],
+    },
+    "wednesday": {
+        "title": "Lower Body + Posterior Chain",
+        "focus": "glutes, hamstrings, lower body, core stability",
+        "gym": [
+            "Romanian Deadlifts or Trap Bar - 4x10",
+            "Walking Lunges - 3x20 steps",
+            "Hip Thrusts or Bridges - 4x8",
+            "Hamstring Curls or Nordic Curls - 3x12",
+            "Bird Dogs or Weighted Plank - 3x1 min",
+        ],
+        "home": [
+            "DB RDL or Backpack RDL - 4x10-12",
+            "Walking Lunges or Reverse Lunges - 3x20 steps",
+            "Glute Bridges or Single-Leg Bridges - 4x10",
+            "Nordic Negatives or Banded Ham Curls - 3x12",
+            "Bird Dogs or Plank - 3x1 min",
+        ],
+    },
+    "thursday": {
+        "title": "Upper Body + Arms & Core",
+        "focus": "shoulders, arms, trunk",
+        "gym": [
+            "Overhead Press or Arnold Press - 4x10",
+            "EZ Bar Curl + DB Hammer Curl - 3x12 each",
+            "Triceps Rope or Skull Crushers - 3x15",
+            "Incline Sit-Ups or Cable Crunch - 3x20",
+            "Side Plank Reach - 3x30 sec/side",
+        ],
+        "home": [
+            "Pike Push-Ups or DB Overhead Press - 4x10",
+            "DB Curl + Hammer Curl - 3x12 each",
+            "Bench Dips or Overhead Triceps Extension - 3x15",
+            "Sit-Ups or Crunch Variations - 3x20",
+            "Side Plank Reach - 3x30 sec/side",
+        ],
+    },
+    "friday": {
+        "title": "Calisthenics + Athletic Conditioning",
+        "focus": "bodyweight performance, explosive conditioning",
+        "gym": [
+            "Push-Ups - 4x20 (mix: wide/diamond/feet up)",
+            "Box Jumps or Sled Push - 3x10",
+            "Pull-Ups or Jumping Pull-Ups - 3x10",
+            "Kettlebell Swings or Sled Drag - 4x30 sec",
+            "Core Circuit: V-Ups + Russian Twists - 3 rounds",
+        ],
+        "home": [
+            "Push-Ups - 4x20 (mix: wide/diamond/feet up)",
+            "Jump Squats or Broad Jumps - 3x10",
+            "Pull-Ups, Band Pulldowns, or Inverted Rows - 3x10",
+            "Kettlebell Swings or Fast Bodyweight Circuits - 4x30 sec",
+            "Core Circuit: V-Ups + Russian Twists - 3 rounds",
+        ],
+    },
+    "saturday": {
+        "title": "Recovery + Mobility",
+        "focus": "recovery, mobility, tissue quality",
+        "gym": [
+            "Yoga Flow - 20-30 min",
+            "Foam Roll: Glutes, Lats, Hamstrings - 10 min",
+            "Breathing Core Work (Deadbugs, TVA Activation)",
+            "Stretch: Hip Flexor, Thoracic Spine - 3x30 sec each",
+        ],
+        "home": [
+            "Yoga Flow - 20-30 min",
+            "Foam Roll or Mobility Ball Work - 10 min",
+            "Breathing Core Work (Deadbugs, TVA Activation)",
+            "Stretch: Hip Flexor, Thoracic Spine - 3x30 sec each",
+        ],
+    },
+    "sunday": {
+        "title": "Light Cardio + Optional Abs",
+        "focus": "recovery cardio, light core",
+        "gym": [
+            "Swimming Laps 10-15 min OR Bike Ride 30-45 min OR Incline Walk 30 min",
+            "Optional Core: Leg Raises, Flutter Kicks, Planks - 3 sets each",
+            "Stretch + Chill Mode",
+        ],
+        "home": [
+            "Bike Ride 30-45 min OR Incline Walk 30 min OR Outdoor Walk",
+            "Optional Core: Leg Raises, Flutter Kicks, Planks - 3 sets each",
+            "Stretch + Chill Mode",
+        ],
+    },
+}
+
+
 def utc_now_iso():
     return datetime.now(timezone.utc).isoformat()
 
@@ -342,6 +466,11 @@ def get_or_create_user_memory(user_id: str):
         "profile": {},
         "transformation_goal": {},
         "fitness_profile": {},
+        "user_workout_engine": {
+            "workout_phase": "",
+            "phase_duration_weeks": 0,
+            "equipment": []
+        },
         "context": {
             "week_mode": "",
             "week_focus": [],
@@ -373,6 +502,10 @@ def get_or_create_user_memory(user_id: str):
     user_data.setdefault("profile", {})
     user_data.setdefault("transformation_goal", {})
     user_data.setdefault("fitness_profile", {})
+    user_data.setdefault("user_workout_engine", {})
+    user_data["user_workout_engine"].setdefault("workout_phase", "")
+    user_data["user_workout_engine"].setdefault("phase_duration_weeks", 0)
+    user_data["user_workout_engine"].setdefault("equipment", [])
     user_data.setdefault("context", {})
     user_data["context"].setdefault("week_mode", "")
     user_data["context"].setdefault("week_focus", [])
@@ -393,6 +526,7 @@ def has_meaningful_brief_data(user_id: str) -> bool:
     fitness_profile = user_data.get("fitness_profile", {})
     transformation_goal = user_data.get("transformation_goal", {})
     activity_baseline = user_data.get("activity_baseline", {})
+    workout_engine = user_data.get("user_workout_engine", {})
 
     has_context = any([
         context.get("week_mode"),
@@ -415,7 +549,9 @@ def has_meaningful_brief_data(user_id: str) -> bool:
         body_goal,
         fitness_profile,
         transformation_goal,
-        activity_baseline
+        activity_baseline,
+        workout_engine.get("workout_phase"),
+        workout_engine.get("equipment"),
     ])
 
     return has_context or has_logs or has_profile
@@ -1025,6 +1161,163 @@ def build_fitness_adjustment_report(user_id: str) -> str:
     )
 
 
+def set_workout_phase(user_id: str, workout_phase: str, phase_duration_weeks: int):
+    memory, user_data = get_or_create_user_memory(user_id)
+    user_data["user_workout_engine"]["workout_phase"] = workout_phase
+    user_data["user_workout_engine"]["phase_duration_weeks"] = phase_duration_weeks
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def update_equipment(user_id: str, equipment_items):
+    memory, user_data = get_or_create_user_memory(user_id)
+    user_data["user_workout_engine"]["equipment"] = equipment_items
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def get_equipment_list(user_id: str):
+    memory = get_memory()
+    user_data = memory.get(user_id, {})
+    engine = user_data.get("user_workout_engine", {})
+    return engine.get("equipment", [])
+
+
+def get_workout_phase_data(user_id: str):
+    memory = get_memory()
+    user_data = memory.get(user_id, {})
+    return user_data.get("user_workout_engine", {})
+
+
+def has_gym_access(user_id: str) -> bool:
+    memory = get_memory()
+    user_data = memory.get(user_id, {})
+    fitness_profile = user_data.get("fitness_profile", {})
+    resources = str(fitness_profile.get("available_resources", "")).lower()
+    equipment = [x.lower() for x in get_equipment_list(user_id)]
+
+    if "gym" in resources or "full_gym" in resources:
+        return True
+    if "barbell" in equipment or "machine" in equipment or "cable" in equipment:
+        return True
+    return False
+
+
+def build_equipment_modifier_text(user_id: str) -> str:
+    equipment = get_equipment_list(user_id)
+    if not equipment:
+        return "No extra equipment updated yet."
+    return ", ".join(equipment)
+
+
+def build_weekly_workout_plan(user_id: str) -> str:
+    phase_data = get_workout_phase_data(user_id)
+    workout_phase = phase_data.get("workout_phase", "not set")
+    phase_duration_weeks = phase_data.get("phase_duration_weeks", 0)
+    gym_mode = has_gym_access(user_id)
+    mode_label = "gym/hybrid" if gym_mode else "home/bodyweight"
+
+    lines = [
+        "Architect Weekly Workout Plan:",
+        f"- Workout phase: {workout_phase}",
+        f"- Planned phase duration: {phase_duration_weeks} week(s)",
+        f"- Build mode used today: {mode_label}",
+        f"- Extra equipment: {build_equipment_modifier_text(user_id)}",
+        ""
+    ]
+
+    for day_name in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
+        block = WEEKLY_WORKOUT_LIBRARY[day_name]
+        exercise_list = block["gym"] if gym_mode else block["home"]
+
+        lines.append(f"{day_name.title()} - {block['title']}")
+        for exercise in exercise_list:
+            lines.append(f"- {exercise}")
+        lines.append("")
+
+    return "\n".join(lines).strip()
+
+
+def build_today_workout(user_id: str) -> str:
+    today_name = dr_now().strftime("%A").lower()
+    block = WEEKLY_WORKOUT_LIBRARY.get(today_name)
+
+    if not block:
+        return "I couldn't determine today's workout."
+
+    phase_data = get_workout_phase_data(user_id)
+    workout_phase = phase_data.get("workout_phase", "not set")
+    phase_duration_weeks = phase_data.get("phase_duration_weeks", 0)
+
+    gym_mode = has_gym_access(user_id)
+    exercise_list = block["gym"] if gym_mode else block["home"]
+    mode_label = "gym/hybrid" if gym_mode else "home/bodyweight"
+
+    lines = [
+        "Architect Today Workout:",
+        f"- Day: {today_name.title()}",
+        f"- Session: {block['title']}",
+        f"- Focus: {block['focus']}",
+        f"- Workout phase: {workout_phase}",
+        f"- Phase duration: {phase_duration_weeks} week(s)",
+        f"- Build mode used: {mode_label}",
+        f"- Extra equipment: {build_equipment_modifier_text(user_id)}",
+        "",
+        "Today's exercises:"
+    ]
+
+    for exercise in exercise_list:
+        lines.append(f"- {exercise}")
+
+    lines.extend([
+        "",
+        "Why this session:",
+        "- It matches your weekly structure from the hybrid manual.",
+        "- It keeps daily intention high instead of guessing what to train.",
+        "- It lets Architect adapt the session around your current access and tools."
+    ])
+
+    return "\n".join(lines)
+
+
+def build_pushup_plan(user_id: str, total_target: int = 300, max_set: int = 25) -> str:
+    if max_set <= 0:
+        max_set = 25
+    if total_target <= 0:
+        total_target = 300
+
+    option_25_sets = total_target // 25
+    remainder_25 = total_target % 25
+
+    lines = [
+        "Architect Push-Up Plan:",
+        f"- Daily target: {total_target}",
+        f"- Current max set: {max_set}",
+        "",
+        "Recommended options:",
+        "- Option 1: 15 sets of 20 = 300 total",
+        f"- Option 2: 12 sets of 25 = 300 total" if remainder_25 == 0 else f"- Option 2: {option_25_sets} sets of 25 + 1 finisher set of {remainder_25}",
+        "- Option 3: EMOM style — 10 to 15 reps every hour across the day until target is complete",
+        "",
+        "Rest guidance:",
+        "- On 20-rep sets: rest 45 to 75 sec",
+        "- On 25-rep sets: rest 75 to 120 sec",
+        "",
+        "Reasoning:",
+        "- Frequent submaximal sets let you accumulate volume without frying your shoulders or triceps too early.",
+        "- This builds work capacity, muscular endurance, movement quality, and consistency.",
+        "- The goal is to dominate total daily volume while staying fresh enough to repeat it."
+    ]
+
+    equipment = [x.lower() for x in get_equipment_list(user_id)]
+    if "weighted_vest" in equipment or "vest" in equipment:
+        lines.append("- Weighted vest note: use the vest only on a smaller portion of the total volume, not all 300.")
+    if "kettlebell" in equipment or "kettlebells" in equipment:
+        lines.append("- Kettlebell note: use kettlebell floor press or swings as accessory work, not as a replacement for the daily push-up target.")
+
+    return "\n".join(lines)
+
+
 def log_weight(user_id: str, value: str):
     memory, user_data = get_or_create_user_memory(user_id)
     user_data["weights"].append({
@@ -1543,6 +1836,16 @@ def build_morning_brief(user_id: str):
         today_steps = sum(x.get("steps", 0) for x in activity_today)
         lines.append(f"- Activity today: {today_cals:.0f} cal | {today_minutes:.0f} min | {today_steps} steps")
 
+    phase_data = get_workout_phase_data(user_id)
+    workout_phase = phase_data.get("workout_phase", "")
+    if workout_phase:
+        lines.append(f"- Workout engine phase: {workout_phase}")
+
+    today_name = dr_now().strftime("%A").lower()
+    today_block = WEEKLY_WORKOUT_LIBRARY.get(today_name)
+    if today_block:
+        lines.append(f"- Today's workout: {today_block['title']}")
+
     lines.extend([
         f"- Week mode: {week_mode}",
         f"- Week focus: {focus_area_text}",
@@ -1640,6 +1943,7 @@ def build_profile_text(user_id: str) -> str:
     transformation_goal = user_memory.get("transformation_goal", {})
     fitness_profile = user_memory.get("fitness_profile", {})
     activity_baseline = user_memory.get("activity_baseline", {})
+    workout_engine = user_memory.get("user_workout_engine", {})
 
     latest_weight = weights[-1]["value"] if weights else "No weight logged yet"
     latest_goal = goals[-1]["text"] if goals else "No goal logged yet"
@@ -1683,6 +1987,13 @@ def build_profile_text(user_id: str) -> str:
             f"- Activity baseline: {activity_baseline.get('active_calories_daily', 0):.0f} cal | {activity_baseline.get('exercise_minutes_daily', 0):.0f} min | {activity_baseline.get('steps_daily', 0)} steps"
         )
 
+    if workout_engine.get("workout_phase"):
+        lines.append(f"- Workout engine phase: {workout_engine.get('workout_phase', 'Not set')}")
+        lines.append(f"- Workout phase duration: {workout_engine.get('phase_duration_weeks', 0)} week(s)")
+
+    if workout_engine.get("equipment"):
+        lines.append(f"- Extra equipment: {', '.join(workout_engine.get('equipment', []))}")
+
     lines.extend([
         f"- Latest weight: {latest_weight}",
         f"- Latest goal: {latest_goal}",
@@ -1718,6 +2029,7 @@ def build_weekly_report(user_id: str) -> str:
     transformation_goal = user_memory.get("transformation_goal", {})
     fitness_profile = user_memory.get("fitness_profile", {})
     activity_baseline = user_memory.get("activity_baseline", {})
+    workout_engine = user_memory.get("user_workout_engine", {})
 
     report_lines = [
         "Weekly performance snapshot:",
@@ -1755,6 +2067,14 @@ def build_weekly_report(user_id: str) -> str:
     if activity_baseline:
         report_lines.append(
             f"- Activity baseline: {activity_baseline.get('active_calories_daily', 0):.0f} cal | {activity_baseline.get('exercise_minutes_daily', 0):.0f} min | {activity_baseline.get('steps_daily', 0)} steps"
+        )
+    if workout_engine.get("workout_phase"):
+        report_lines.append(
+            f"- Workout engine: {workout_engine.get('workout_phase', 'Not set')} | duration {workout_engine.get('phase_duration_weeks', 0)} week(s)"
+        )
+    if workout_engine.get("equipment"):
+        report_lines.append(
+            f"- Extra equipment: {', '.join(workout_engine.get('equipment', []))}"
         )
     if weights:
         report_lines.append(f"- Latest weight: {weights[-1]['value']}")
@@ -2373,6 +2693,58 @@ async def on_message(message: discord.Message):
 
         if command == "fitness-adjustment":
             await message.channel.send(build_fitness_adjustment_report(user_id))
+            return
+
+        if command == "set-workout-phase":
+            parts = body.split()
+            if len(parts) < 2:
+                await message.channel.send("Usage: `!architect set-workout-phase calisthenics 12`")
+                return
+
+            workout_phase = parts[0]
+            phase_duration_weeks = int(float(parts[1]))
+            set_workout_phase(user_id, workout_phase, phase_duration_weeks)
+
+            await message.channel.send(
+                "Workout phase saved:\n"
+                f"- Phase: {workout_phase}\n"
+                f"- Duration: {phase_duration_weeks} week(s)"
+            )
+            return
+
+        if command == "update-equipment":
+            if not body:
+                await message.channel.send("Usage: `!architect update-equipment kettlebell weighted_vest bands`")
+                return
+
+            equipment_items = body.split()
+            update_equipment(user_id, equipment_items)
+
+            await message.channel.send(
+                "Equipment updated:\n"
+                f"- {', '.join(equipment_items)}"
+            )
+            return
+
+        if command == "weekly-workout-plan":
+            await message.channel.send(build_weekly_workout_plan(user_id))
+            return
+
+        if command == "today-workout":
+            await message.channel.send(build_today_workout(user_id))
+            return
+
+        if command == "pushup-plan":
+            parts = body.split()
+            total_target = 300
+            max_set = 25
+
+            if len(parts) >= 1:
+                total_target = int(float(parts[0]))
+            if len(parts) >= 2:
+                max_set = int(float(parts[1]))
+
+            await message.channel.send(build_pushup_plan(user_id, total_target, max_set))
             return
 
         if command == "log-weight":
