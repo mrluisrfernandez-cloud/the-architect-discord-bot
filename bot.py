@@ -1,6 +1,6 @@
 import os
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from zoneinfo import ZoneInfo
 
 import discord
@@ -121,6 +121,20 @@ def save_json_file(path: str, data):
 
 def get_user_key(message: discord.Message) -> str:
     return str(message.author.id)
+
+
+def safe_float(value, default=0.0):
+    try:
+        return float(value)
+    except Exception:
+        return default
+
+
+def safe_int(value, default=0):
+    try:
+        return int(float(value))
+    except Exception:
+        return default
 
 
 def get_department_prompt(channel_name: str) -> str:
@@ -321,6 +335,11 @@ def get_or_create_user_memory(user_id: str):
         "focus_logs": [],
         "workouts": [],
         "body_baseline": {},
+        "body_goal": {},
+        "body_change": {},
+        "profile": {},
+        "transformation_goal": {},
+        "fitness_profile": {},
         "context": {
             "week_mode": "",
             "week_focus": [],
@@ -345,6 +364,11 @@ def get_or_create_user_memory(user_id: str):
     user_data.setdefault("focus_logs", [])
     user_data.setdefault("workouts", [])
     user_data.setdefault("body_baseline", {})
+    user_data.setdefault("body_goal", {})
+    user_data.setdefault("body_change", {})
+    user_data.setdefault("profile", {})
+    user_data.setdefault("transformation_goal", {})
+    user_data.setdefault("fitness_profile", {})
     user_data.setdefault("context", {})
     user_data["context"].setdefault("week_mode", "")
     user_data["context"].setdefault("week_focus", [])
@@ -360,6 +384,10 @@ def has_meaningful_brief_data(user_id: str) -> bool:
     memory = get_memory()
     user_data = memory.get(user_id, {})
     context = user_data.get("context", {})
+    body_baseline = user_data.get("body_baseline", {})
+    body_goal = user_data.get("body_goal", {})
+    fitness_profile = user_data.get("fitness_profile", {})
+    transformation_goal = user_data.get("transformation_goal", {})
 
     has_context = any([
         context.get("week_mode"),
@@ -376,7 +404,14 @@ def has_meaningful_brief_data(user_id: str) -> bool:
         user_data.get("focus_logs"),
     ])
 
-    return has_context or has_logs
+    has_profile = any([
+        body_baseline,
+        body_goal,
+        fitness_profile,
+        transformation_goal
+    ])
+
+    return has_context or has_logs or has_profile
 
 
 def set_body_baseline(
@@ -451,6 +486,326 @@ def build_body_baseline_report(user_id: str) -> str:
         f"- Bone Mass: {baseline.get('bone_mass_lb', 0):.1f} lb\n"
         f"- Body Type: {baseline.get('body_type', 'Not set')}\n"
         f"- Metabolic Age: {baseline.get('metabolic_age', 0)}"
+    )
+
+
+def set_body_goal(user_id: str, target_weight_low_lb: float, target_weight_high_lb: float, target_body_fat_percent: float):
+    memory, user_data = get_or_create_user_memory(user_id)
+
+    user_data["body_goal"] = {
+        "target_weight_low_lb": target_weight_low_lb,
+        "target_weight_high_lb": target_weight_high_lb,
+        "target_body_fat_percent": target_body_fat_percent,
+        "timestamp": utc_now_iso()
+    }
+
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def build_body_goal_report(user_id: str) -> str:
+    memory = get_memory()
+    user_data = memory.get(user_id, {})
+    goal = user_data.get("body_goal", {})
+
+    if not goal:
+        return "No body goal saved yet. Use `!architect set-body-goal 190 200 11`"
+
+    return (
+        "Architect Body Goal:\n"
+        f"- Target weight range: {goal.get('target_weight_low_lb', 0):.1f} to {goal.get('target_weight_high_lb', 0):.1f} lb\n"
+        f"- Target body fat: {goal.get('target_body_fat_percent', 0):.1f}%"
+    )
+
+
+def set_body_change(user_id: str, weight_change_lb: float, bmi_change: float, body_fat_change_percent: float):
+    memory, user_data = get_or_create_user_memory(user_id)
+
+    user_data["body_change"] = {
+        "weight_change_lb": weight_change_lb,
+        "bmi_change": bmi_change,
+        "body_fat_change_percent": body_fat_change_percent,
+        "timestamp": utc_now_iso()
+    }
+
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def build_body_change_report(user_id: str) -> str:
+    memory = get_memory()
+    user_data = memory.get(user_id, {})
+    change = user_data.get("body_change", {})
+
+    if not change:
+        return "No body change snapshot saved yet. Use `!architect set-body-change 32.6 4.8 7.5`"
+
+    return (
+        "Architect Body Change Snapshot:\n"
+        f"- Weight change: +{change.get('weight_change_lb', 0):.1f} lb\n"
+        f"- BMI change: +{change.get('bmi_change', 0):.1f}\n"
+        f"- Body fat change: +{change.get('body_fat_change_percent', 0):.1f}%"
+    )
+
+
+def set_profile(user_id: str, birth_date: str, birth_time: str):
+    memory, user_data = get_or_create_user_memory(user_id)
+
+    user_data["profile"]["birth_date"] = birth_date
+    user_data["profile"]["birth_time"] = birth_time
+    user_data["profile"]["timestamp"] = utc_now_iso()
+
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def build_profile_identity_report(user_id: str) -> str:
+    memory = get_memory()
+    user_data = memory.get(user_id, {})
+    profile = user_data.get("profile", {})
+
+    if not profile:
+        return "No profile identity saved yet. Use `!architect set-profile 12/24/1986 6:00AM`"
+
+    return (
+        "Architect Profile:\n"
+        f"- Birth date: {profile.get('birth_date', 'Not set')}\n"
+        f"- Birth time: {profile.get('birth_time', 'Not set')}"
+    )
+
+
+def set_transformation_goal(
+    user_id: str,
+    current_weight_lb: float,
+    target_weight_low_lb: float,
+    target_weight_high_lb: float,
+    deadline_date: str,
+    goal_type: str
+):
+    memory, user_data = get_or_create_user_memory(user_id)
+
+    user_data["transformation_goal"] = {
+        "current_weight_lb": current_weight_lb,
+        "target_weight_low_lb": target_weight_low_lb,
+        "target_weight_high_lb": target_weight_high_lb,
+        "deadline_date": deadline_date,
+        "goal_type": goal_type,
+        "timestamp": utc_now_iso()
+    }
+
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def compute_transformation_status(user_id: str):
+    memory = get_memory()
+    user_data = memory.get(user_id, {})
+
+    transformation = user_data.get("transformation_goal", {})
+    body_baseline = user_data.get("body_baseline", {})
+    body_goal = user_data.get("body_goal", {})
+    fitness_profile = user_data.get("fitness_profile", {})
+
+    if not transformation:
+        return None
+
+    current_weight = safe_float(
+        transformation.get("current_weight_lb") or body_baseline.get("weight_lb"),
+        0
+    )
+    target_low = safe_float(
+        transformation.get("target_weight_low_lb") or body_goal.get("target_weight_low_lb"),
+        0
+    )
+    target_high = safe_float(
+        transformation.get("target_weight_high_lb") or body_goal.get("target_weight_high_lb"),
+        0
+    )
+    deadline_text = transformation.get("deadline_date", "")
+    goal_type = transformation.get("goal_type", "Not set")
+
+    try:
+        deadline = date.fromisoformat(deadline_text)
+    except Exception:
+        return {
+            "valid": False,
+            "error": "Invalid deadline date. Use YYYY-MM-DD."
+        }
+
+    today = dr_now().date()
+    days_left = (deadline - today).days
+    weeks_left = days_left / 7 if days_left is not None else 0
+
+    if target_low <= 0 or target_high <= 0 or current_weight <= 0:
+        return {
+            "valid": False,
+            "error": "Transformation goal is missing valid weight data."
+        }
+
+    midpoint_target = (target_low + target_high) / 2
+    pounds_to_goal = current_weight - midpoint_target
+
+    pounds_per_week = 0
+    if weeks_left > 0:
+        pounds_per_week = pounds_to_goal / weeks_left
+
+    training_days = safe_int(fitness_profile.get("training_days_available", 0), 0)
+    current_mode = fitness_profile.get("current_training_mode", "Not set")
+    current_phase = fitness_profile.get("current_phase", "Not set")
+    resources = fitness_profile.get("available_resources", "Not set")
+
+    pace_status = "On pace"
+    if days_left < 0:
+        pace_status = "Deadline passed"
+    elif pounds_per_week > 2.0:
+        pace_status = "Aggressive"
+    elif pounds_per_week > 1.25:
+        pace_status = "Demanding"
+    elif pounds_per_week > 0:
+        pace_status = "Reasonable"
+    elif pounds_per_week == 0:
+        pace_status = "At target"
+    else:
+        pace_status = "Below target range / reassess"
+
+    recommendation_lines = []
+
+    if days_left < 0:
+        recommendation_lines.append("The deadline has already passed. Set a new transformation date and reassess the plan.")
+    else:
+        if pounds_per_week > 2.0:
+            recommendation_lines.append("Your required pace is aggressive. You may need tighter nutrition, higher consistency, and possibly more training or cardio.")
+        elif pounds_per_week > 1.25:
+            recommendation_lines.append("Your pace is demanding but possible if compliance stays high across training, sleep, and nutrition.")
+        elif pounds_per_week > 0:
+            recommendation_lines.append("Your pace is reasonable. Focus on consistency instead of overcorrecting.")
+        else:
+            recommendation_lines.append("Your current target range may already be close. Reassess whether the focus should shift toward lean quality and muscle retention.")
+
+    if training_days > 0:
+        if pounds_per_week > 1.25 and training_days < 5:
+            recommendation_lines.append("Given the timeframe, adding an extra training day could help if recovery and schedule allow.")
+        elif training_days >= 5:
+            recommendation_lines.append("Training frequency is already solid. Prioritize recovery and food precision over blindly adding more volume.")
+        else:
+            recommendation_lines.append("Keep training days realistic and sustainable so recovery does not collapse.")
+    else:
+        recommendation_lines.append("Training days are not set yet. Set your fitness profile so Architect can coach more intelligently.")
+
+    if current_mode.lower() == "calisthenics":
+        recommendation_lines.append("Calisthenics is a strong base for control and aesthetics. If resources expand, hybrid training can accelerate body recomposition.")
+    elif current_mode.lower() == "hybrid":
+        recommendation_lines.append("Hybrid mode gives more options for body recomposition. Make sure programming matches recovery and your actual equipment access.")
+
+    return {
+        "valid": True,
+        "current_weight": current_weight,
+        "target_low": target_low,
+        "target_high": target_high,
+        "midpoint_target": midpoint_target,
+        "deadline_text": deadline_text,
+        "days_left": days_left,
+        "weeks_left": weeks_left,
+        "pounds_to_goal": pounds_to_goal,
+        "pounds_per_week": pounds_per_week,
+        "goal_type": goal_type,
+        "pace_status": pace_status,
+        "current_mode": current_mode,
+        "current_phase": current_phase,
+        "training_days": training_days,
+        "resources": resources,
+        "recommendation_lines": recommendation_lines
+    }
+
+
+def build_transformation_status_report(user_id: str) -> str:
+    memory = get_memory()
+    user_data = memory.get(user_id, {})
+    transformation = user_data.get("transformation_goal", {})
+
+    if not transformation:
+        return "No transformation goal saved yet. Use `!architect set-transformation-goal 221.6 190 200 2026-06-01 lean-aesthetic`"
+
+    status = compute_transformation_status(user_id)
+
+    if not status:
+        return "Transformation status unavailable."
+    if not status.get("valid", False):
+        return f"Transformation status error: {status.get('error', 'Unknown error')}"
+
+    recommendations = "\n".join([f"- {x}" for x in status.get("recommendation_lines", [])])
+
+    return (
+        "Architect Transformation Status:\n"
+        f"- Goal type: {status.get('goal_type', 'Not set')}\n"
+        f"- Current weight: {status.get('current_weight', 0):.1f} lb\n"
+        f"- Target range: {status.get('target_low', 0):.1f} to {status.get('target_high', 0):.1f} lb\n"
+        f"- Target midpoint: {status.get('midpoint_target', 0):.1f} lb\n"
+        f"- Deadline: {status.get('deadline_text', 'Not set')}\n"
+        f"- Days left: {status.get('days_left', 0)}\n"
+        f"- Weeks left: {status.get('weeks_left', 0):.1f}\n"
+        f"- Pounds to midpoint target: {status.get('pounds_to_goal', 0):.1f} lb\n"
+        f"- Required pace: {status.get('pounds_per_week', 0):.2f} lb/week\n"
+        f"- Pace status: {status.get('pace_status', 'Not set')}\n"
+        f"- Current training mode: {status.get('current_mode', 'Not set')}\n"
+        f"- Current phase: {status.get('current_phase', 'Not set')}\n"
+        f"- Training days available: {status.get('training_days', 0)}\n"
+        f"- Resources: {status.get('resources', 'Not set')}\n"
+        f"\nRecommendations:\n{recommendations}"
+    )
+
+
+def set_fitness_profile(
+    user_id: str,
+    current_training_mode: str,
+    current_phase: str,
+    training_days_available: int,
+    available_resources: str,
+    current_challenge: str,
+    movement_base: str,
+    physique_target: str,
+    starting_point_notes: str
+):
+    memory, user_data = get_or_create_user_memory(user_id)
+
+    user_data["fitness_profile"] = {
+        "current_training_mode": current_training_mode,
+        "current_phase": current_phase,
+        "training_days_available": training_days_available,
+        "available_resources": available_resources,
+        "current_challenge": current_challenge,
+        "movement_base": movement_base,
+        "physique_target": physique_target,
+        "starting_point_notes": starting_point_notes,
+        "timestamp": utc_now_iso()
+    }
+
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def build_fitness_profile_report(user_id: str) -> str:
+    memory = get_memory()
+    user_data = memory.get(user_id, {})
+    fp = user_data.get("fitness_profile", {})
+
+    if not fp:
+        return (
+            "No fitness profile saved yet.\n"
+            "Use:\n"
+            "`!architect set-fitness-profile hybrid base_building 5 home_bodyweight_soon_gym 300_pushups_daily pushups_situps_squats_lunges_fullbody bodyweight_aesthetics_to_lean_bulk current_starting_phase`"
+        )
+
+    return (
+        "Architect Fitness Profile:\n"
+        f"- Current training mode: {fp.get('current_training_mode', 'Not set')}\n"
+        f"- Current phase: {fp.get('current_phase', 'Not set')}\n"
+        f"- Training days available: {fp.get('training_days_available', 0)}\n"
+        f"- Available resources: {fp.get('available_resources', 'Not set')}\n"
+        f"- Current challenge: {fp.get('current_challenge', 'Not set')}\n"
+        f"- Movement base: {fp.get('movement_base', 'Not set')}\n"
+        f"- Physique target: {fp.get('physique_target', 'Not set')}\n"
+        f"- Starting point notes: {fp.get('starting_point_notes', 'Not set')}"
     )
 
 
@@ -787,51 +1142,55 @@ def build_life_report(user_id: str):
     notes = user_data.get("notes", [])
     ideas = user_data.get("ideas", [])
     body_baseline = user_data.get("body_baseline", {})
+    body_goal = user_data.get("body_goal", {})
+    transformation = user_data.get("transformation_goal", {})
+    fitness_profile = user_data.get("fitness_profile", {})
 
-    if not sleep_logs and not mood_logs and not focus_logs and not workouts and not body_baseline:
-        return "No life performance logs yet. Use `!architect log-sleep`, `!architect log-mood`, `!architect log-focus`, `!architect log-workout`, and `!architect set-body-baseline`."
+    if not sleep_logs and not mood_logs and not focus_logs and not workouts and not body_baseline and not body_goal and not transformation and not fitness_profile:
+        return "No life performance logs yet. Use `!architect log-sleep`, `!architect log-mood`, `!architect log-focus`, `!architect log-workout`, `!architect set-body-baseline`, `!architect set-body-goal`, and `!architect set-fitness-profile`."
 
-    avg_sleep = (
-        sum(x["hours"] for x in sleep_logs) / len(sleep_logs) if sleep_logs else 0
-    )
-    avg_mood = (
-        sum(x["score"] for x in mood_logs) / len(mood_logs) if mood_logs else 0
-    )
-    avg_focus = (
-        sum(x["score"] for x in focus_logs) / len(focus_logs) if focus_logs else 0
-    )
+    avg_sleep = sum(x["hours"] for x in sleep_logs) / len(sleep_logs) if sleep_logs else 0
+    avg_mood = sum(x["score"] for x in mood_logs) / len(mood_logs) if mood_logs else 0
+    avg_focus = sum(x["score"] for x in focus_logs) / len(focus_logs) if focus_logs else 0
 
-    weight_line = ""
-    bodyfat_line = ""
-    bmi_line = ""
+    lines = ["Architect Life Performance Report:"]
 
     if body_baseline:
-        weight_line = f"- Baseline weight: {body_baseline.get('weight_lb', 0):.1f} lb\n"
-        bodyfat_line = f"- Baseline body fat: {body_baseline.get('body_fat_percent', 0):.1f}%\n"
-        bmi_line = f"- Baseline BMI: {body_baseline.get('bmi', 0):.1f}\n"
+        lines.append(f"- Baseline weight: {body_baseline.get('weight_lb', 0):.1f} lb")
+        lines.append(f"- Baseline body fat: {body_baseline.get('body_fat_percent', 0):.1f}%")
+        lines.append(f"- Baseline BMI: {body_baseline.get('bmi', 0):.1f}")
 
-    return (
-        "Architect Life Performance Report:\n"
-        f"{weight_line}"
-        f"{bodyfat_line}"
-        f"{bmi_line}"
-        f"- Sleep logs: {len(sleep_logs)}\n"
-        f"- Average sleep: {avg_sleep:.2f} hrs\n"
-        f"- Mood logs: {len(mood_logs)}\n"
-        f"- Average mood: {avg_mood:.2f}\n"
-        f"- Focus logs: {len(focus_logs)}\n"
-        f"- Average focus: {avg_focus:.2f}\n"
-        f"- Workouts logged: {len(workouts)}\n"
-        f"- Habits logged: {len(habits)}\n"
-        f"- Notes captured: {len(notes)}\n"
-        f"- Ideas captured: {len(ideas)}"
-    )
+    if body_goal:
+        lines.append(
+            f"- Body goal: {body_goal.get('target_weight_low_lb', 0):.1f} to {body_goal.get('target_weight_high_lb', 0):.1f} lb | BF {body_goal.get('target_body_fat_percent', 0):.1f}%"
+        )
+
+    if fitness_profile:
+        lines.append(f"- Current training mode: {fitness_profile.get('current_training_mode', 'Not set')}")
+        lines.append(f"- Current phase: {fitness_profile.get('current_phase', 'Not set')}")
+        lines.append(f"- Training days available: {fitness_profile.get('training_days_available', 0)}")
+
+    lines.extend([
+        f"- Sleep logs: {len(sleep_logs)}",
+        f"- Average sleep: {avg_sleep:.2f} hrs",
+        f"- Mood logs: {len(mood_logs)}",
+        f"- Average mood: {avg_mood:.2f}",
+        f"- Focus logs: {len(focus_logs)}",
+        f"- Average focus: {avg_focus:.2f}",
+        f"- Workouts logged: {len(workouts)}",
+        f"- Habits logged: {len(habits)}",
+        f"- Notes captured: {len(notes)}",
+        f"- Ideas captured: {len(ideas)}",
+    ])
+
+    return "\n".join(lines)
 
 
 def build_week_plan(user_id: str):
     memory = get_memory()
     user_data = memory.get(user_id, {})
     context = user_data.get("context", {})
+    fitness_profile = user_data.get("fitness_profile", {})
 
     week_mode = context.get("week_mode", "Not set")
     week_focus = context.get("week_focus", [])
@@ -841,9 +1200,16 @@ def build_week_plan(user_id: str):
     daily_goals = context.get("daily_goals", [])
 
     latest_goal = daily_goals[-1]["text"] if daily_goals else "No daily goal set"
-
     focus_text = ", ".join(week_focus) if week_focus else "Not set"
     watchlist_text = ", ".join(watchlist) if watchlist else "Not set"
+
+    fitness_lines = ""
+    if fitness_profile:
+        fitness_lines = (
+            f"- Current phase: {fitness_profile.get('current_phase', 'Not set')}\n"
+            f"- Training days available: {fitness_profile.get('training_days_available', 0)}\n"
+            f"- Current challenge: {fitness_profile.get('current_challenge', 'Not set')}\n"
+        )
 
     return (
         "Architect Week Plan:\n"
@@ -851,6 +1217,7 @@ def build_week_plan(user_id: str):
         f"- Week focus: {focus_text}\n"
         f"- Training mode: {training_mode}\n"
         f"- Nutrition mode: {nutrition_mode}\n"
+        f"{fitness_lines}"
         f"- Watchlist: {watchlist_text}\n"
         f"- Latest daily goal: {latest_goal}"
     )
@@ -861,6 +1228,9 @@ def build_morning_brief(user_id: str):
     user_data = memory.get(user_id, {})
     context = user_data.get("context", {})
     body_baseline = user_data.get("body_baseline", {})
+    body_goal = user_data.get("body_goal", {})
+    fitness_profile = user_data.get("fitness_profile", {})
+    transformation_goal = user_data.get("transformation_goal", {})
 
     today = today_dr()
     today_pretty = dr_now().strftime("%A, %B %d, %Y")
@@ -898,29 +1268,43 @@ def build_morning_brief(user_id: str):
     elif str(training_mode).lower() == "hybrid":
         recommendation = "Training mode is hybrid. Balance strength, conditioning, and recovery without losing consistency."
 
-    body_line = ""
+    lines = [
+        "Architect Morning Brief:",
+        f"- Date: {today_pretty}",
+    ]
+
     if body_baseline:
-        body_line = (
-            f"- Body baseline: {body_baseline.get('weight_lb', 0):.1f} lb | "
-            f"BF {body_baseline.get('body_fat_percent', 0):.1f}% | "
-            f"BMI {body_baseline.get('bmi', 0):.1f}\n"
+        lines.append(
+            f"- Body baseline: {body_baseline.get('weight_lb', 0):.1f} lb | BF {body_baseline.get('body_fat_percent', 0):.1f}% | BMI {body_baseline.get('bmi', 0):.1f}"
         )
 
-    return (
-        "Architect Morning Brief:\n"
-        f"- Date: {today_pretty}\n"
-        f"{body_line}"
-        f"- Week mode: {week_mode}\n"
-        f"- Week focus: {focus_area_text}\n"
-        f"- Training mode: {training_mode}\n"
-        f"- Nutrition mode: {nutrition_mode}\n"
-        f"- Daily goal: {latest_goal}\n"
-        f"- Watchlist: {watchlist_text}\n"
-        f"- Sleep: {sleep_text}\n"
-        f"- Mood: {mood_text}\n"
-        f"- Focus: {focus_text}\n"
+    if body_goal:
+        lines.append(
+            f"- Body goal: {body_goal.get('target_weight_low_lb', 0):.1f} to {body_goal.get('target_weight_high_lb', 0):.1f} lb | BF {body_goal.get('target_body_fat_percent', 0):.1f}%"
+        )
+
+    if fitness_profile:
+        lines.append(f"- Current phase: {fitness_profile.get('current_phase', 'Not set')}")
+        lines.append(f"- Fitness mode: {fitness_profile.get('current_training_mode', 'Not set')}")
+        lines.append(f"- Current challenge: {fitness_profile.get('current_challenge', 'Not set')}")
+
+    if transformation_goal:
+        lines.append(f"- Transformation deadline: {transformation_goal.get('deadline_date', 'Not set')}")
+
+    lines.extend([
+        f"- Week mode: {week_mode}",
+        f"- Week focus: {focus_area_text}",
+        f"- Training mode: {training_mode}",
+        f"- Nutrition mode: {nutrition_mode}",
+        f"- Daily goal: {latest_goal}",
+        f"- Watchlist: {watchlist_text}",
+        f"- Sleep: {sleep_text}",
+        f"- Mood: {mood_text}",
+        f"- Focus: {focus_text}",
         f"- Recommendation: {recommendation}"
-    )
+    ])
+
+    return "\n".join(lines)
 
 
 def log_trade_raw(user_id: str, raw_trade: str):
@@ -1001,6 +1385,10 @@ def build_profile_text(user_id: str) -> str:
     habits = user_memory.get("habits", [])
     checkins = user_memory.get("checkins", [])
     body_baseline = user_memory.get("body_baseline", {})
+    body_goal = user_memory.get("body_goal", {})
+    profile = user_memory.get("profile", {})
+    transformation_goal = user_memory.get("transformation_goal", {})
+    fitness_profile = user_memory.get("fitness_profile", {})
 
     latest_weight = weights[-1]["value"] if weights else "No weight logged yet"
     latest_goal = goals[-1]["text"] if goals else "No goal logged yet"
@@ -1009,30 +1397,45 @@ def build_profile_text(user_id: str) -> str:
     if checkins:
         latest_checkin = checkins[-1]
         latest_checkin_text = (
-            f"Energy {latest_checkin['energy']} | "
-            f"Motivation {latest_checkin['motivation']} | "
-            f"Focus {latest_checkin['focus']}"
+            f"Energy {latest_checkin['energy']} | Motivation {latest_checkin['motivation']} | Focus {latest_checkin['focus']}"
         )
     else:
         latest_checkin_text = "No check-in logged yet"
 
-    baseline_line = ""
+    lines = ["Profile snapshot:"]
+
+    if profile:
+        lines.append(f"- Birth date: {profile.get('birth_date', 'Not set')}")
+        lines.append(f"- Birth time: {profile.get('birth_time', 'Not set')}")
+
     if body_baseline:
-        baseline_line = (
-            f"- Body baseline: {body_baseline.get('weight_lb', 0):.1f} lb | "
-            f"BF {body_baseline.get('body_fat_percent', 0):.1f}% | "
-            f"BMI {body_baseline.get('bmi', 0):.1f}\n"
+        lines.append(
+            f"- Body baseline: {body_baseline.get('weight_lb', 0):.1f} lb | BF {body_baseline.get('body_fat_percent', 0):.1f}% | BMI {body_baseline.get('bmi', 0):.1f}"
         )
 
-    return (
-        "Profile snapshot:\n"
-        f"{baseline_line}"
-        f"- Latest weight: {latest_weight}\n"
-        f"- Latest goal: {latest_goal}\n"
-        f"- Latest habit: {latest_habit}\n"
-        f"- Latest check-in: {latest_checkin_text}\n"
+    if body_goal:
+        lines.append(
+            f"- Body goal: {body_goal.get('target_weight_low_lb', 0):.1f} to {body_goal.get('target_weight_high_lb', 0):.1f} lb | BF {body_goal.get('target_body_fat_percent', 0):.1f}%"
+        )
+
+    if transformation_goal:
+        lines.append(
+            f"- Transformation goal: {transformation_goal.get('goal_type', 'Not set')} by {transformation_goal.get('deadline_date', 'Not set')}"
+        )
+
+    if fitness_profile:
+        lines.append(f"- Current training mode: {fitness_profile.get('current_training_mode', 'Not set')}")
+        lines.append(f"- Current phase: {fitness_profile.get('current_phase', 'Not set')}")
+
+    lines.extend([
+        f"- Latest weight: {latest_weight}",
+        f"- Latest goal: {latest_goal}",
+        f"- Latest habit: {latest_habit}",
+        f"- Latest check-in: {latest_checkin_text}",
         f"- Total trades logged: {len(user_trades)}"
-    )
+    ])
+
+    return "\n".join(lines)
 
 
 def build_weekly_report(user_id: str) -> str:
@@ -1054,6 +1457,9 @@ def build_weekly_report(user_id: str) -> str:
     focus_logs = user_memory.get("focus_logs", [])
     workouts = user_memory.get("workouts", [])
     body_baseline = user_memory.get("body_baseline", {})
+    body_goal = user_memory.get("body_goal", {})
+    transformation_goal = user_memory.get("transformation_goal", {})
+    fitness_profile = user_memory.get("fitness_profile", {})
 
     report_lines = [
         "Weekly performance snapshot:",
@@ -1074,6 +1480,18 @@ def build_weekly_report(user_id: str) -> str:
     if body_baseline:
         report_lines.append(
             f"- Body baseline: {body_baseline.get('weight_lb', 0):.1f} lb | BF {body_baseline.get('body_fat_percent', 0):.1f}% | BMI {body_baseline.get('bmi', 0):.1f}"
+        )
+    if body_goal:
+        report_lines.append(
+            f"- Body goal: {body_goal.get('target_weight_low_lb', 0):.1f} to {body_goal.get('target_weight_high_lb', 0):.1f} lb | BF {body_goal.get('target_body_fat_percent', 0):.1f}%"
+        )
+    if transformation_goal:
+        report_lines.append(
+            f"- Transformation goal: {transformation_goal.get('goal_type', 'Not set')} by {transformation_goal.get('deadline_date', 'Not set')}"
+        )
+    if fitness_profile:
+        report_lines.append(
+            f"- Fitness profile: {fitness_profile.get('current_training_mode', 'Not set')} | phase {fitness_profile.get('current_phase', 'Not set')} | days {fitness_profile.get('training_days_available', 0)}"
         )
     if weights:
         report_lines.append(f"- Latest weight: {weights[-1]['value']}")
@@ -1499,6 +1917,159 @@ async def on_message(message: discord.Message):
 
         if command == "body-baseline":
             await message.channel.send(build_body_baseline_report(user_id))
+            return
+
+        if command == "set-body-goal":
+            parts = body.split()
+
+            if len(parts) < 3:
+                await message.channel.send("Usage: `!architect set-body-goal 190 200 11`")
+                return
+
+            target_low = float(parts[0])
+            target_high = float(parts[1])
+            target_bf = float(parts[2])
+
+            set_body_goal(user_id, target_low, target_high, target_bf)
+            await message.channel.send(
+                "Body goal saved:\n"
+                f"- Target weight range: {target_low:.1f} to {target_high:.1f} lb\n"
+                f"- Target body fat: {target_bf:.1f}%"
+            )
+            return
+
+        if command == "body-goal":
+            await message.channel.send(build_body_goal_report(user_id))
+            return
+
+        if command == "set-body-change":
+            parts = body.split()
+
+            if len(parts) < 3:
+                await message.channel.send("Usage: `!architect set-body-change 32.6 4.8 7.5`")
+                return
+
+            weight_change_lb = float(parts[0])
+            bmi_change = float(parts[1])
+            body_fat_change_percent = float(parts[2])
+
+            set_body_change(user_id, weight_change_lb, bmi_change, body_fat_change_percent)
+            await message.channel.send(
+                "Body change snapshot saved:\n"
+                f"- Weight change: +{weight_change_lb:.1f} lb\n"
+                f"- BMI change: +{bmi_change:.1f}\n"
+                f"- Body fat change: +{body_fat_change_percent:.1f}%"
+            )
+            return
+
+        if command == "body-change":
+            await message.channel.send(build_body_change_report(user_id))
+            return
+
+        if command == "set-profile":
+            parts = body.split()
+
+            if len(parts) < 2:
+                await message.channel.send("Usage: `!architect set-profile 12/24/1986 6:00AM`")
+                return
+
+            birth_date = parts[0]
+            birth_time = parts[1]
+
+            set_profile(user_id, birth_date, birth_time)
+            await message.channel.send(
+                "Profile saved:\n"
+                f"- Birth date: {birth_date}\n"
+                f"- Birth time: {birth_time}"
+            )
+            return
+
+        if command == "profile":
+            await message.channel.send(build_profile_identity_report(user_id))
+            return
+
+        if command == "set-transformation-goal":
+            parts = body.split()
+
+            if len(parts) < 5:
+                await message.channel.send(
+                    "Usage: `!architect set-transformation-goal 221.6 190 200 2026-06-01 lean-aesthetic`"
+                )
+                return
+
+            current_weight_lb = float(parts[0])
+            target_low = float(parts[1])
+            target_high = float(parts[2])
+            deadline_date = parts[3]
+            goal_type = parts[4]
+
+            set_transformation_goal(
+                user_id=user_id,
+                current_weight_lb=current_weight_lb,
+                target_weight_low_lb=target_low,
+                target_weight_high_lb=target_high,
+                deadline_date=deadline_date,
+                goal_type=goal_type
+            )
+
+            await message.channel.send(
+                "Transformation goal saved:\n"
+                f"- Current weight: {current_weight_lb:.1f} lb\n"
+                f"- Target range: {target_low:.1f} to {target_high:.1f} lb\n"
+                f"- Deadline: {deadline_date}\n"
+                f"- Goal type: {goal_type}"
+            )
+            return
+
+        if command == "transformation-status":
+            await message.channel.send(build_transformation_status_report(user_id))
+            return
+
+        if command == "set-fitness-profile":
+            parts = body.split()
+
+            if len(parts) < 8:
+                await message.channel.send(
+                    "Usage: `!architect set-fitness-profile hybrid base_building 5 home_bodyweight_soon_gym 300_pushups_daily pushups_situps_squats_lunges_fullbody bodyweight_aesthetics_to_lean_bulk current_starting_phase`"
+                )
+                return
+
+            current_training_mode = parts[0]
+            current_phase = parts[1]
+            training_days_available = int(float(parts[2]))
+            available_resources = parts[3]
+            current_challenge = parts[4]
+            movement_base = parts[5]
+            physique_target = parts[6]
+            starting_point_notes = parts[7]
+
+            set_fitness_profile(
+                user_id=user_id,
+                current_training_mode=current_training_mode,
+                current_phase=current_phase,
+                training_days_available=training_days_available,
+                available_resources=available_resources,
+                current_challenge=current_challenge,
+                movement_base=movement_base,
+                physique_target=physique_target,
+                starting_point_notes=starting_point_notes
+            )
+
+            await message.channel.send(
+                "Fitness profile saved:\n"
+                f"- Current training mode: {current_training_mode}\n"
+                f"- Current phase: {current_phase}\n"
+                f"- Training days available: {training_days_available}\n"
+                f"- Available resources: {available_resources}\n"
+                f"- Current challenge: {current_challenge}\n"
+                f"- Movement base: {movement_base}\n"
+                f"- Physique target: {physique_target}\n"
+                f"- Starting point notes: {starting_point_notes}"
+            )
+            return
+
+        if command == "show-fitness-profile":
+            await message.channel.send(build_fitness_profile_report(user_id))
             return
 
         if command == "log-weight":
