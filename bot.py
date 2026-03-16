@@ -897,6 +897,134 @@ def build_fitness_profile_report(user_id: str) -> str:
     )
 
 
+def update_resources(user_id: str, available_resources: str):
+    memory, user_data = get_or_create_user_memory(user_id)
+    fitness_profile = user_data.get("fitness_profile", {})
+    fitness_profile["available_resources"] = available_resources
+    fitness_profile["timestamp"] = utc_now_iso()
+    user_data["fitness_profile"] = fitness_profile
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def update_training_days(user_id: str, training_days_available: int):
+    memory, user_data = get_or_create_user_memory(user_id)
+    fitness_profile = user_data.get("fitness_profile", {})
+    fitness_profile["training_days_available"] = training_days_available
+    fitness_profile["timestamp"] = utc_now_iso()
+    user_data["fitness_profile"] = fitness_profile
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def update_fitness_mode(user_id: str, current_training_mode: str, current_phase: str):
+    memory, user_data = get_or_create_user_memory(user_id)
+    fitness_profile = user_data.get("fitness_profile", {})
+    fitness_profile["current_training_mode"] = current_training_mode
+    fitness_profile["current_phase"] = current_phase
+    fitness_profile["timestamp"] = utc_now_iso()
+    user_data["fitness_profile"] = fitness_profile
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def adjust_goal_timeline(user_id: str, deadline_date: str):
+    memory, user_data = get_or_create_user_memory(user_id)
+    transformation_goal = user_data.get("transformation_goal", {})
+    transformation_goal["deadline_date"] = deadline_date
+    transformation_goal["timestamp"] = utc_now_iso()
+    user_data["transformation_goal"] = transformation_goal
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def build_fitness_adjustment_report(user_id: str) -> str:
+    memory = get_memory()
+    user_data = memory.get(user_id, {})
+
+    fitness_profile = user_data.get("fitness_profile", {})
+    transformation_goal = user_data.get("transformation_goal", {})
+    activity_baseline = user_data.get("activity_baseline", {})
+    status = compute_transformation_status(user_id)
+
+    if not fitness_profile:
+        return "No fitness profile saved yet. Use `!architect set-fitness-profile ...` first."
+    if not transformation_goal:
+        return "No transformation goal saved yet. Use `!architect set-transformation-goal ...` first."
+    if not status or not status.get("valid", False):
+        return f"Fitness adjustment unavailable: {status.get('error', 'Missing valid transformation data') if status else 'Missing transformation data'}"
+
+    mode = fitness_profile.get("current_training_mode", "Not set")
+    phase = fitness_profile.get("current_phase", "Not set")
+    days = safe_int(fitness_profile.get("training_days_available", 0), 0)
+    resources = fitness_profile.get("available_resources", "Not set")
+    challenge = fitness_profile.get("current_challenge", "Not set")
+
+    pace = status.get("pace_status", "Not set")
+    pounds_per_week = status.get("pounds_per_week", 0.0)
+
+    options = []
+
+    if pace == "Aggressive":
+        options.append("Option A: Keep the deadline and tighten execution hard across nutrition, steps, recovery, and training consistency.")
+        if days < 6:
+            options.append("Option B: Add 1 extra training day if recovery, schedule, and nutrition can actually support it.")
+        options.append("Option C: Keep current training days but increase weekly calorie expenditure through structured cardio or higher daily movement.")
+        options.append("Option D: Extend the deadline slightly so the cut is more realistic and muscle retention improves.")
+    elif pace == "Demanding":
+        options.append("Option A: Stay at current days and improve compliance before increasing volume.")
+        if days < 6:
+            options.append("Option B: Add 1 training day only if sleep and soreness remain controlled.")
+        options.append("Option C: Tighten nutrition and keep daily activity more consistent.")
+    elif pace == "Reasonable":
+        options.append("Option A: Do not overcorrect. Keep the plan simple and sustainable.")
+        options.append("Option B: Use current structure and refine execution quality first.")
+        options.append("Option C: Increase output only if progress stalls for multiple weeks.")
+    else:
+        options.append("Option A: Reassess goal range and timeline together.")
+        options.append("Option B: Focus on body quality, strength, and consistency first.")
+
+    intelligent_notes = []
+
+    if "gym" in resources.lower():
+        intelligent_notes.append("You now have gym access in your resource picture, so hybrid training has more upside.")
+    else:
+        intelligent_notes.append("Your current resource profile still looks limited, so bodyweight and hybrid efficiency matter more than complexity.")
+
+    if mode.lower() == "calisthenics":
+        intelligent_notes.append("Calisthenics remains excellent for body control and aesthetics, but gym access can increase progression options once ready.")
+    elif mode.lower() == "hybrid":
+        intelligent_notes.append("Hybrid mode gives you the most flexibility right now, especially if your goal includes leaning out while preserving or rebuilding muscle.")
+
+    if days >= 6:
+        intelligent_notes.append("You already have a high training frequency. More is not automatically better; recovery quality now matters a lot.")
+    elif days <= 4:
+        intelligent_notes.append("Your current training frequency is modest. If the timeline is tight, an additional day may help if recovery is stable.")
+
+    if activity_baseline:
+        intelligent_notes.append(
+            f"Your current activity target is around {activity_baseline.get('active_calories_daily', 0):.0f} active calories and {activity_baseline.get('exercise_minutes_daily', 0):.0f} exercise minutes per day."
+        )
+
+    intelligent_notes.append(f"Current challenge in system: {challenge}.")
+    intelligent_notes.append(f"Current pace requirement: {pounds_per_week:.2f} lb/week.")
+
+    options_text = "\n".join([f"- {x}" for x in options])
+    notes_text = "\n".join([f"- {x}" for x in intelligent_notes])
+
+    return (
+        "Architect Fitness Adjustment:\n"
+        f"- Current mode: {mode}\n"
+        f"- Current phase: {phase}\n"
+        f"- Training days available: {days}\n"
+        f"- Resources: {resources}\n"
+        f"- Pace status: {pace}\n"
+        f"- Required weekly pace: {pounds_per_week:.2f} lb/week\n"
+        f"\nAdjustment options:\n{options_text}\n"
+        f"\nIntelligent notes:\n{notes_text}"
+    )
+
+
 def log_weight(user_id: str, value: str):
     memory, user_data = get_or_create_user_memory(user_id)
     user_data["weights"].append({
@@ -1345,7 +1473,6 @@ def build_morning_brief(user_id: str):
     fitness_profile = user_data.get("fitness_profile", {})
     transformation_goal = user_data.get("transformation_goal", {})
     activity_baseline = user_data.get("activity_baseline", {})
-    activity_logs = user_data.get("activity_logs", {})
 
     today = today_dr()
     today_pretty = dr_now().strftime("%A, %B %d, %Y")
@@ -1377,9 +1504,7 @@ def build_morning_brief(user_id: str):
     latest_goal = daily_goals[-1]["text"] if daily_goals else "No daily goal set"
 
     recommendation = "Stay disciplined, execute the plan, and log your data."
-    if str(week_mode).lower() == "no-trading":
-        recommendation = "Trading mode is off this week. Focus on recovery, learning, fitness, and system refinement."
-    elif str(training_mode).lower() == "calisthenics":
+    if str(training_mode).lower() == "calisthenics":
         recommendation = "Training mode is calisthenics. Get your volume done early and keep nutrition aligned with recovery."
     elif str(training_mode).lower() == "hybrid":
         recommendation = "Training mode is hybrid. Balance strength, conditioning, and recovery without losing consistency."
@@ -1616,8 +1741,9 @@ def build_weekly_report(user_id: str) -> str:
             f"- Body baseline: {body_baseline.get('weight_lb', 0):.1f} lb | BF {body_baseline.get('body_fat_percent', 0):.1f}% | BMI {body_baseline.get('bmi', 0):.1f}"
         )
     if body_goal:
-        reportLines = f"- Body goal: {body_goal.get('target_weight_low_lb', 0):.1f} to {body_goal.get('target_weight_high_lb', 0):.1f} lb | BF {body_goal.get('target_body_fat_percent', 0):.1f}%"
-        report_lines.append(reportLines)
+        report_lines.append(
+            f"- Body goal: {body_goal.get('target_weight_low_lb', 0):.1f} to {body_goal.get('target_weight_high_lb', 0):.1f} lb | BF {body_goal.get('target_body_fat_percent', 0):.1f}%"
+        )
     if transformation_goal:
         report_lines.append(
             f"- Transformation goal: {transformation_goal.get('goal_type', 'Not set')} by {transformation_goal.get('deadline_date', 'Not set')}"
@@ -2207,6 +2333,48 @@ async def on_message(message: discord.Message):
             await message.channel.send(build_fitness_profile_report(user_id))
             return
 
+        if command == "update-resources":
+            if not body:
+                await message.channel.send("Usage: `!architect update-resources full_gym_home_cardio`")
+                return
+            update_resources(user_id, body)
+            await message.channel.send(f"Resources updated: {body}")
+            return
+
+        if command == "update-training-days":
+            if not body:
+                await message.channel.send("Usage: `!architect update-training-days 6`")
+                return
+            training_days = int(float(body))
+            update_training_days(user_id, training_days)
+            await message.channel.send(f"Training days updated: {training_days}")
+            return
+
+        if command == "update-fitness-mode":
+            parts = body.split()
+            if len(parts) < 2:
+                await message.channel.send("Usage: `!architect update-fitness-mode hybrid strength_recomp`")
+                return
+            update_fitness_mode(user_id, parts[0], parts[1])
+            await message.channel.send(
+                "Fitness mode updated:\n"
+                f"- Training mode: {parts[0]}\n"
+                f"- Phase: {parts[1]}"
+            )
+            return
+
+        if command == "adjust-goal-timeline":
+            if not body:
+                await message.channel.send("Usage: `!architect adjust-goal-timeline 2026-06-15`")
+                return
+            adjust_goal_timeline(user_id, body)
+            await message.channel.send(f"Transformation deadline updated: {body}")
+            return
+
+        if command == "fitness-adjustment":
+            await message.channel.send(build_fitness_adjustment_report(user_id))
+            return
+
         if command == "log-weight":
             if not body:
                 await message.channel.send("Usage: `!architect log-weight 186.4`")
@@ -2236,7 +2404,6 @@ async def on_message(message: discord.Message):
             if len(parts) < 6:
                 await message.channel.send("Usage: `!architect checkin energy 8 motivation 7 focus 9`")
                 return
-
             try:
                 energy_value = parts[1]
                 motivation_value = parts[3]
@@ -2427,7 +2594,6 @@ async def on_message(message: discord.Message):
                 return
 
             log_trade_raw(user_id, body)
-
             review_prompt = (
                 "Review this trade like a sharp trading coach. "
                 "Identify strengths, weaknesses, discipline issues, risk issues, and next-step improvements.\n\n"
