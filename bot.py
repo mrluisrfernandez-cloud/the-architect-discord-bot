@@ -104,15 +104,22 @@ def save_trades(data):
 
 def get_or_create_user_memory(user_id: str):
     memory = get_memory()
-   user_data = memory.get(user_id, {
-    "weights": [],
-    "goals": [],
-    "notes": [],
-    "ideas": [],
-    "habits": [],
-    "checkins": []
-})
-    
+    user_data = memory.get(user_id, {
+        "weights": [],
+        "goals": [],
+        "notes": [],
+        "ideas": [],
+        "habits": [],
+        "checkins": []
+    })
+
+    user_data.setdefault("weights", [])
+    user_data.setdefault("goals", [])
+    user_data.setdefault("notes", [])
+    user_data.setdefault("ideas", [])
+    user_data.setdefault("habits", [])
+    user_data.setdefault("checkins", [])
+
     return memory, user_data
 
 
@@ -164,6 +171,84 @@ def log_checkin(user_id: str, energy: str, motivation: str, focus: str):
 
     memory[user_id] = user_data
     save_memory(memory)
+
+
+def log_note(user_id: str, note: str):
+    memory, user_data = get_or_create_user_memory(user_id)
+
+    user_data["notes"].append({
+        "text": note,
+        "timestamp": datetime.utcnow().isoformat()
+    })
+
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def log_idea(user_id: str, idea: str):
+    memory, user_data = get_or_create_user_memory(user_id)
+
+    user_data["ideas"].append({
+        "text": idea,
+        "timestamp": datetime.utcnow().isoformat()
+    })
+
+    memory[user_id] = user_data
+    save_memory(memory)
+
+
+def show_notes(user_id: str):
+    memory = get_memory()
+    user_data = memory.get(user_id, {})
+
+    notes = user_data.get("notes", [])
+
+    if not notes:
+        return "No notes saved yet."
+
+    text = "Saved notes:\n"
+    for note in notes[-10:]:
+        text += f"- {note['text']}\n"
+
+    return text
+
+
+def show_ideas(user_id: str):
+    memory = get_memory()
+    user_data = memory.get(user_id, {})
+
+    ideas = user_data.get("ideas", [])
+
+    if not ideas:
+        return "No ideas saved yet."
+
+    text = "Saved ideas:\n"
+    for idea in ideas[-10:]:
+        text += f"- {idea['text']}\n"
+
+    return text
+
+
+def build_knowledge_report(user_id: str):
+    memory = get_memory()
+    user_data = memory.get(user_id, {})
+
+    notes = user_data.get("notes", [])
+    ideas = user_data.get("ideas", [])
+
+    report = (
+        "Knowledge System Report:\n"
+        f"- Notes saved: {len(notes)}\n"
+        f"- Ideas saved: {len(ideas)}\n"
+    )
+
+    if notes:
+        report += f"\nLatest note:\n- {notes[-1]['text']}\n"
+
+    if ideas:
+        report += f"\nLatest idea:\n- {ideas[-1]['text']}\n"
+
+    return report
 
 
 def log_trade_raw(user_id: str, raw_trade: str):
@@ -259,7 +344,7 @@ def build_profile_text(user_id: str) -> str:
         latest_checkin_text = "No check-in logged yet"
 
     return (
-        f"Profile snapshot:\n"
+        "Profile snapshot:\n"
         f"- Latest weight: {latest_weight}\n"
         f"- Latest goal: {latest_goal}\n"
         f"- Latest habit: {latest_habit}\n"
@@ -403,8 +488,8 @@ def build_coach_report(user_id: str) -> str:
     capture_ratio = (avg_realized_r / avg_planned_r) if avg_planned_r != 0 else 0
 
     setup_stats = {}
-    for t in structured:
-        setup = t.get("setup", "unknown")
+    for trade in structured:
+        setup = trade.get("setup", "unknown")
         if setup not in setup_stats:
             setup_stats[setup] = {
                 "count": 0,
@@ -413,9 +498,9 @@ def build_coach_report(user_id: str) -> str:
             }
 
         setup_stats[setup]["count"] += 1
-        setup_stats[setup]["total_r"] += t.get("realized_r", 0)
+        setup_stats[setup]["total_r"] += trade.get("realized_r", 0)
 
-        if t.get("result_pts", 0) > 0:
+        if trade.get("result_pts", 0) > 0:
             setup_stats[setup]["wins"] += 1
 
     best_setup_text = "Not enough data"
@@ -584,6 +669,34 @@ async def on_message(message: discord.Message):
             await message.channel.send(
                 f"Check-in logged: Energy {energy_value} | Motivation {motivation_value} | Focus {focus_value}"
             )
+            return
+
+        if command == "save-note":
+            if not body:
+                await message.channel.send("Usage: `!architect save-note your note`")
+                return
+            log_note(user_id, body)
+            await message.channel.send(f"Note saved: {body}")
+            return
+
+        if command == "save-idea":
+            if not body:
+                await message.channel.send("Usage: `!architect save-idea your idea`")
+                return
+            log_idea(user_id, body)
+            await message.channel.send(f"Idea saved: {body}")
+            return
+
+        if command == "notes":
+            await message.channel.send(show_notes(user_id))
+            return
+
+        if command == "ideas":
+            await message.channel.send(show_ideas(user_id))
+            return
+
+        if command == "knowledge-report":
+            await message.channel.send(build_knowledge_report(user_id))
             return
 
         if command == "show-profile":
