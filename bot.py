@@ -36,7 +36,7 @@ DEPARTMENT_CHANNELS = {
     "fitness_lab": "fitness-log",
     "nutrition_lab": "nutrition-lab",
     "trading_desk": "trading-desk",
-    "knowledge_vault": "knowledge-vault",
+   "knowledge_vault": "reading-log",
     "builder_lab": "builder-lab",
     "cosmic_reflection": "cosmic-reflection",
     "architect_analysis": "system-analysis",
