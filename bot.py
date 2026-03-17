@@ -64,7 +64,7 @@ async def send_to_department(guild, department, message):
 
     if channel:
         await channel.send(message)
-  async def route_department_report(guild, department, message):
+async def route_department_report(guild, department, message):
     # send to the main department
     await send_to_department(guild, department, message)
 
