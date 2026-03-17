@@ -2876,15 +2876,15 @@ async def on_message(message: discord.Message):
             await message.channel.send(f"Transformation deadline updated: {body}")
             return
 
-       if command == "fitness-adjustment":
-    report = build_fitness_adjustment_report(user_id)
+        if command == "fitness-adjustment":
+            report = build_fitness_adjustment_report(user_id)
 
-    await message.channel.send(report)
+            await message.channel.send(report)
 
-    guild = message.guild
-    await send_to_department(guild, "fitness_lab", report)
+            guild = message.guild
+            await send_to_department(guild, "fitness_lab", report)
 
-    return
+            return
         if command == "adjustment-engine":
             result = analyze_adjustment_engine(user_id)
             await message.channel.send(
