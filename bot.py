@@ -466,6 +466,10 @@ def get_or_create_user_memory(user_id: str):
         "profile": {},
         "transformation_goal": {},
         "fitness_profile": {},
+        "adjustment_engine": {
+            "last_analysis": {},
+            "last_updated": ""
+            },
         "user_workout_engine": {
             "workout_phase": "",
             "phase_duration_weeks": 0,
