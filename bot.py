@@ -3357,22 +3357,22 @@ async def on_message(message: discord.Message):
             )
             return
         if command == "artemis-weekly":
-        await message.channel.send(
-            "ARTEMIS WEEKLY BRIEF\n\n"
-            "Luis — here is what we are tracking this week:\n\n"
-            "Macro Events:\n"
-            "- CPI / Inflation data\n"
-            "- Fed speakers\n"
-            "- NFP if applicable\n\n"
-            "Earnings Watch:\n"
-            "- Check your watchlist tickers\n"
-            "- Compare to last earnings report\n\n"
-            "Focus:\n"
-            "- Trade reaction, not prediction\n"
-            "- Let volatility create opportunity\n\n"
-            "Stay sharp this week."
-            )      
-        return
+            await message.channel.send(
+                    "ARTEMIS WEEKLY BRIEF\n\n"
+                    "Luis — here is what we are tracking this week:\n\n"
+                    "Macro Events:\n"
+                    "- CPI / Inflation data\n"
+                    "- Fed speakers\n"
+                    "- NFP if applicable\n\n"
+                    "Earnings Watch:\n"
+                    "- Check your watchlist tickers\n"
+                    "- Compare to last earnings report\n\n"
+                    "Focus:\n"
+                    "- Trade reaction, not prediction\n"
+                    "- Let volatility create opportunity\n\n"
+                    "Stay sharp this week."
+                )      
+            return
         await run_ai_reply(message, prompt)
 
     except Exception as e:
