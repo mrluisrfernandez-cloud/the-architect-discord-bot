@@ -3313,7 +3313,63 @@ async def on_message(message: discord.Message):
             coach_report = build_coach_report(user_id)
             await message.channel.send(coach_report)
             return
+// =============================
+// ⚔️ ARTEMIS — WATCHLIST SETUP
+// =============================
+if (command === "set-watchlist") {
+  const watchlist = args.join(", ");
+  
+  await message.reply(`⚔️ ARTEMIS WATCHLIST SET
 
+Tracking:
+${watchlist}
+
+Artemis is now locked into your market focus.`);
+}
+
+
+// =============================
+// ⚔️ ARTEMIS — DAILY BRIEF
+// =============================
+if (command === "artemis-brief") {
+  await message.reply(`⚔️ ARTEMIS BRIEF
+
+Market Focus:
+• Your watchlist is active
+
+Macro Awareness:
+• Check for CPI / Fed / NFP this week
+
+Execution Reminder:
+• Wait for HTF alignment
+• Execute break & retest
+• No chasing
+
+Discipline Focus:
+• Patience
+• Confirmation
+• Precision`);
+}
+
+
+// =============================
+// ⚔️ ARTEMIS — MARKET TALK (ACCOUNTABILITY LOOP)
+// =============================
+if (command === "artemis-talk") {
+  await message.reply(`⚔️ ARTEMIS CHECK-IN
+
+Luis — when do you want to run today's market talk?
+
+Drop a time (example: 8 PM)
+
+We’ll break down:
+• What you did
+• What you missed
+• What the market actually did
+• What we improve tomorrow
+
+I'm ready when you are.`);
+}
         await run_ai_reply(message, prompt)
 
     except Exception as e:
