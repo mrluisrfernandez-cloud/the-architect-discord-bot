@@ -2690,67 +2690,67 @@ async def on_message(message: discord.Message):
     
             return
 
-    if command == "set-body-baseline":
-        parts = body.split()
-
-        if len(parts) < 15:
-            await message.channel.send(
-                "Usage: !architect set-body-baseline 221.6 31 32.8 44.5 145.2 3 15.8 1867 152.8 26.6 15 49.8 7.6 Heavy 45"
-            )
-            return
-
-        set_body_baseline(
-            user_id=user_id,
-            weight_lb=float(parts[0]),
-            body_fat_percent=float(parts[1]),
-            bmi=float(parts[2]),
-            skeletal_muscle_percent=float(parts[3]),
-            muscle_mass_lb=float(parts[4]),
-            muscle_storage_ability_level=int(float(parts[5])),
-            protein_percent=float(parts[6]),
-            bmr_kcal=float(parts[7]),
-            fat_free_body_weight_lb=float(parts[8]),
-            subcutaneous_fat_percent=float(parts[9]),
-            visceral_fat=int(float(parts[10])),
-            body_water_percent=float(parts[11]),
-            bone_mass_lb=float(parts[12]),
-            body_type=parts[13],
-            metabolic_age=int(float(parts[14]))
-        )
-
-        await message.channel.send(
-            "Body baseline saved:\n"
-            f"- Weight: {float(parts[0]):.1f} lb\n"
-            f"- Body Fat: {float(parts[1]):.1f}%\n"
-            f"- BMI: {float(parts[2]):.1f}\n"
-            f"- Skeletal Muscle: {float(parts[3]):.1f}%\n"
-            f"- Muscle Mass: {float(parts[4]):.1f} lb\n"
-            f"- BMR: {float(parts[7]):.0f} kcal\n"
-            f"- Body Type: {parts[13]}\n"
-            f"- Metabolic Age: {int(float(parts[14]))}"
-        )
-        return
-
-    if command == "body-baseline":
-        await message.channel.send(build_body_baseline_report(user_id))
-        return        
-        if command == "set-body-goal":
+        if command == "set-body-baseline":
             parts = body.split()
-            if len(parts) < 3:
-                await message.channel.send("Usage: !architect set-body-goal 190 200 11")
+    
+            if len(parts) < 15:
+                await message.channel.send(
+                    "Usage: !architect set-body-baseline 221.6 31 32.8 44.5 145.2 3 15.8 1867 152.8 26.6 15 49.8 7.6 Heavy 45"
+                )
                 return
-
-            target_low = float(parts[0])
-            target_high = float(parts[1])
-            target_bf = float(parts[2])
-
-            set_body_goal(user_id, target_low, target_high, target_bf)
+    
+            set_body_baseline(
+                user_id=user_id,
+                weight_lb=float(parts[0]),
+                body_fat_percent=float(parts[1]),
+                bmi=float(parts[2]),
+                skeletal_muscle_percent=float(parts[3]),
+                muscle_mass_lb=float(parts[4]),
+                muscle_storage_ability_level=int(float(parts[5])),
+                protein_percent=float(parts[6]),
+                bmr_kcal=float(parts[7]),
+                fat_free_body_weight_lb=float(parts[8]),
+                subcutaneous_fat_percent=float(parts[9]),
+                visceral_fat=int(float(parts[10])),
+                body_water_percent=float(parts[11]),
+                bone_mass_lb=float(parts[12]),
+                body_type=parts[13],
+                metabolic_age=int(float(parts[14]))
+            )
+    
             await message.channel.send(
-                "Body goal saved:\n"
-                f"- Target weight range: {target_low:.1f} to {target_high:.1f} lb\n"
-                f"- Target body fat: {target_bf:.1f}%"
+                "Body baseline saved:\n"
+                f"- Weight: {float(parts[0]):.1f} lb\n"
+                f"- Body Fat: {float(parts[1]):.1f}%\n"
+                f"- BMI: {float(parts[2]):.1f}\n"
+                f"- Skeletal Muscle: {float(parts[3]):.1f}%\n"
+                f"- Muscle Mass: {float(parts[4]):.1f} lb\n"
+                f"- BMR: {float(parts[7]):.0f} kcal\n"
+                f"- Body Type: {parts[13]}\n"
+                f"- Metabolic Age: {int(float(parts[14]))}"
             )
             return
+    
+        if command == "body-baseline":
+            await message.channel.send(build_body_baseline_report(user_id))
+            return        
+            if command == "set-body-goal":
+                parts = body.split()
+                if len(parts) < 3:
+                    await message.channel.send("Usage: !architect set-body-goal 190 200 11")
+                    return
+    
+                target_low = float(parts[0])
+                target_high = float(parts[1])
+                target_bf = float(parts[2])
+    
+                set_body_goal(user_id, target_low, target_high, target_bf)
+                await message.channel.send(
+                    "Body goal saved:\n"
+                    f"- Target weight range: {target_low:.1f} to {target_high:.1f} lb\n"
+                    f"- Target body fat: {target_bf:.1f}%"
+                )
+                return
 
         if command == "body-goal":
             await message.channel.send(build_body_goal_report(user_id))
