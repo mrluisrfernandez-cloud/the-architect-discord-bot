@@ -31,6 +31,16 @@ CHANNELS = {
     "system_analysis": "system-analysis",
 }
 
+DEPARTMENT_CHANNELS = {
+    "system_core": "mission-brief",
+    "fitness_lab": "fitness-log",
+    "nutrition_lab": "nutrition-lab",
+    "trading_desk": "trading-desk",
+    "knowledge_vault": "knowledge-vault",
+    "builder_lab": "builder-lab",
+    "cosmic_reflection": "cosmic-reflection",
+    "architect_analysis": "system-analysis",
+}
 MORNING_BRIEF_HOUR = 8
 MORNING_BRIEF_MINUTE = 0
 
