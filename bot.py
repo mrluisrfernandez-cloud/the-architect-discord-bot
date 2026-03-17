@@ -2712,9 +2712,9 @@ async def on_message(message: discord.Message):
             
            
      if command == "set-body-baseline":
-        parts = body.split()
+         parts = body.split()
 
-        if len(parts) < 15:
+     if len(parts) < 15:
             await message.channel.send(
                 "Usage: !architect set-body-baseline 221.6 31 32.8 44.5 145.2 3 15.8 1867 152.8 26.6 15 49.8 7.6 Heavy 45"
             )
