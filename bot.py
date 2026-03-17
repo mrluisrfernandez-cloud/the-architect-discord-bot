@@ -2860,7 +2860,7 @@ async def on_message(message: discord.Message):
         f"- Activity days counted: {result.get('activity_days', 0)}"
             )
             return
- def log_detailed_workout(user_id: str, workout_type: str, amount: int, source: str = "manual", notes: str = ""):
+def log_detailed_workout(user_id: str, workout_type: str, amount: int, source: str = "manual", notes: str = ""):
     memory = get_memory()
     user = memory.get(user_id, {})
 
