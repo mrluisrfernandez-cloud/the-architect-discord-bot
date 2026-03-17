@@ -2711,7 +2711,7 @@ async def on_message(message: discord.Message):
         
             
            
-      if command == "set-body-baseline":
+     if command == "set-body-baseline":
         parts = body.split()
 
         if len(parts) < 15:
@@ -2750,7 +2750,7 @@ async def on_message(message: discord.Message):
             f"- Body Type: {parts[13]}\n"
             f"- Metabolic Age: {int(float(parts[14]))}"
         )
-        return  
+        return
         if command == "body-baseline":
             await message.channel.send(build_body_baseline_report(user_id))
             return
