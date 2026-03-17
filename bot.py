@@ -556,6 +556,123 @@ def analyze_adjustment_engine(user_id: str):
     save_memory(memory)
 
     return adjustment
+def log_detailed_workout(user_id: str, workout_type: str, amount: int, source: str = "manual", notes: str = ""):
+    memory = get_memory()
+    user = memory.get(user_id, {})
+
+    user.setdefault("workout_logs", [])
+
+    user["workout_logs"].append({
+        "workout_type": workout_type,
+        "amount": amount,
+        "source": source,
+        "notes": notes,
+        "timestamp": utc_now_iso(),
+        "date": today_dr()
+    })
+
+    memory[user_id] = user
+    save_memory(memory)
+
+
+def log_detailed_activity(
+    user_id: str,
+    activity_type: str,
+    cardio_type: str,
+    duration_min: int,
+    calories: int = 0,
+    steps: int = 0,
+    avg_heart_rate: int = 0,
+    distance: float = 0.0,
+    source: str = "manual",
+    notes: str = ""
+):
+    memory = get_memory()
+    user = memory.get(user_id, {})
+
+    user.setdefault("activity_logs", [])
+
+    user["activity_logs"].append({
+        "activity_type": activity_type,
+        "cardio_type": cardio_type,
+        "duration_min": duration_min,
+        "calories": calories,
+        "steps": steps,
+        "avg_heart_rate": avg_heart_rate,
+        "distance": distance,
+        "source": source,
+        "notes": notes,
+        "timestamp": utc_now_iso(),
+        "date": today_dr()
+    })
+
+    memory[user_id] = user
+    save_memory(memory)
+
+
+def log_detailed_sleep(user_id: str, hours: float, source: str = "manual", notes: str = ""):
+    memory = get_memory()
+    user = memory.get(user_id, {})
+
+    user.setdefault("sleep_logs", [])
+
+    user["sleep_logs"].append({
+        "hours": hours,
+        "source": source,
+        "notes": notes,
+        "timestamp": utc_now_iso(),
+        "date": today_dr()
+    })
+
+    memory[user_id] = user
+    save_memory(memory)
+
+
+def log_detailed_recovery(user_id: str, score: int, source: str = "manual", notes: str = ""):
+    memory = get_memory()
+    user = memory.get(user_id, {})
+
+    user.setdefault("recovery_logs", [])
+
+    user["recovery_logs"].append({
+        "score": score,
+        "source": source,
+        "notes": notes,
+        "timestamp": utc_now_iso(),
+        "date": today_dr()
+    })
+
+    memory[user_id] = user
+    save_memory(memory)
+
+
+def log_detailed_nutrition(
+    user_id: str,
+    calories: int,
+    protein_g: int = 0,
+    carbs_g: int = 0,
+    fats_g: int = 0,
+    source: str = "manual",
+    notes: str = ""
+):
+    memory = get_memory()
+    user = memory.get(user_id, {})
+
+    user.setdefault("nutrition_logs", [])
+
+    user["nutrition_logs"].append({
+        "calories": calories,
+        "protein_g": protein_g,
+        "carbs_g": carbs_g,
+        "fats_g": fats_g,
+        "source": source,
+        "notes": notes,
+        "timestamp": utc_now_iso(),
+        "date": today_dr()
+    })
+
+    memory[user_id] = user
+    save_memory(memory)
 def has_meaningful_brief_data(user_id: str) -> bool:
     memory = get_memory()
     user_data = memory.get(user_id, {})
@@ -2743,6 +2860,123 @@ async def on_message(message: discord.Message):
         f"- Activity days counted: {result.get('activity_days', 0)}"
             )
             return
+      def log_detailed_workout(user_id: str, workout_type: str, amount: int, source: str = "manual", notes: str = ""):
+    memory = get_memory()
+    user = memory.get(user_id, {})
+
+    user.setdefault("workout_logs", [])
+
+    user["workout_logs"].append({
+        "workout_type": workout_type,
+        "amount": amount,
+        "source": source,
+        "notes": notes,
+        "timestamp": utc_now_iso(),
+        "date": today_dr()
+    })
+
+    memory[user_id] = user
+    save_memory(memory)
+
+
+def log_detailed_activity(
+    user_id: str,
+    activity_type: str,
+    cardio_type: str,
+    duration_min: int,
+    calories: int = 0,
+    steps: int = 0,
+    avg_heart_rate: int = 0,
+    distance: float = 0.0,
+    source: str = "manual",
+    notes: str = ""
+):
+    memory = get_memory()
+    user = memory.get(user_id, {})
+
+    user.setdefault("activity_logs", [])
+
+    user["activity_logs"].append({
+        "activity_type": activity_type,
+        "cardio_type": cardio_type,
+        "duration_min": duration_min,
+        "calories": calories,
+        "steps": steps,
+        "avg_heart_rate": avg_heart_rate,
+        "distance": distance,
+        "source": source,
+        "notes": notes,
+        "timestamp": utc_now_iso(),
+        "date": today_dr()
+    })
+
+    memory[user_id] = user
+    save_memory(memory)
+
+
+def log_detailed_sleep(user_id: str, hours: float, source: str = "manual", notes: str = ""):
+    memory = get_memory()
+    user = memory.get(user_id, {})
+
+    user.setdefault("sleep_logs", [])
+
+    user["sleep_logs"].append({
+        "hours": hours,
+        "source": source,
+        "notes": notes,
+        "timestamp": utc_now_iso(),
+        "date": today_dr()
+    })
+
+    memory[user_id] = user
+    save_memory(memory)
+
+
+def log_detailed_recovery(user_id: str, score: int, source: str = "manual", notes: str = ""):
+    memory = get_memory()
+    user = memory.get(user_id, {})
+
+    user.setdefault("recovery_logs", [])
+
+    user["recovery_logs"].append({
+        "score": score,
+        "source": source,
+        "notes": notes,
+        "timestamp": utc_now_iso(),
+        "date": today_dr()
+    })
+
+    memory[user_id] = user
+    save_memory(memory)
+
+
+def log_detailed_nutrition(
+    user_id: str,
+    calories: int,
+    protein_g: int = 0,
+    carbs_g: int = 0,
+    fats_g: int = 0,
+    source: str = "manual",
+    notes: str = ""
+):
+    memory = get_memory()
+    user = memory.get(user_id, {})
+
+    user.setdefault("nutrition_logs", [])
+
+    user["nutrition_logs"].append({
+        "calories": calories,
+        "protein_g": protein_g,
+        "carbs_g": carbs_g,
+        "fats_g": fats_g,
+        "source": source,
+        "notes": notes,
+        "timestamp": utc_now_iso(),
+        "date": today_dr()
+    })
+
+    memory[user_id] = user
+    save_memory(memory)
         if command == "set-workout-phase":
             parts = body.split()
             if len(parts) < 2:
