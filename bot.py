@@ -2711,7 +2711,7 @@ async def on_message(message: discord.Message):
         
             
            
-         if command == "set-body-baseline":
+     if command == "set-body-baseline":
         parts = body.split()
 
         if len(parts) < 15:
