@@ -3313,49 +3313,49 @@ async def on_message(message: discord.Message):
             coach_report = build_coach_report(user_id)
             await message.channel.send(coach_report)
             return
-    if command == "set-watchlist":
-        watchlist = body.strip()
-        if not watchlist:
-            await message.channel.send("Usage: !architect set-watchlist MNQ US30 NAS100 TSLA")
+        if command == "set-watchlist":
+            watchlist = body.strip()
+            if not watchlist:
+                await message.channel.send("Usage: !architect set-watchlist MNQ US30 NAS100 TSLA")
+                return
+    
+            save_note(user_id, f"WATCHLIST::{watchlist}")
+            await message.channel.send(
+                f" ARTEMIS WATCHLIST SET\n\nTracking:\n{watchlist}\n\nArtemis is now locked into your market focus."
+            )
             return
-
-        save_note(user_id, f"WATCHLIST::{watchlist}")
-        await message.channel.send(
-            f" ARTEMIS WATCHLIST SET\n\nTracking:\n{watchlist}\n\nArtemis is now locked into your market focus."
-        )
-        return
-
-    if command == "artemis-brief":
-        await message.channel.send(
-            " ARTEMIS BRIEF\n\n"
-            "Market Focus:\n"
-            "• Your watchlist is active\n\n"
-            "Macro Awareness:\n"
-            "• Check for CPI / Fed / NFP this week\n\n"
-            "Execution Reminder:\n"
-            "• Wait for HTF alignment\n"
-            "• Execute break & retest\n"
-            "• No chasing\n\n"
-            "Discipline Focus:\n"
-            "• Patience\n"
-            "• Confirmation\n"
-            "• Precision"
-        )
-        return
-
-    if command == "artemis-talk":
-        await message.channel.send(
-            " ARTEMIS CHECK-IN\n\n"
-            "Luis — when do you want to run today's market talk?\n\n"
-            "Drop a time (example: 8 PM)\n\n"
-            "We’ll break down:\n"
-            "• What you did\n"
-            "• What you missed\n"
-            "• What the market actually did\n"
-            "• What we improve tomorrow\n\n"
-            "I'm ready when you are."
-        )
-        return
+    
+        if command == "artemis-brief":
+            await message.channel.send(
+                " ARTEMIS BRIEF\n\n"
+                "Market Focus:\n"
+                "• Your watchlist is active\n\n"
+                "Macro Awareness:\n"
+                "• Check for CPI / Fed / NFP this week\n\n"
+                "Execution Reminder:\n"
+                "• Wait for HTF alignment\n"
+                "• Execute break & retest\n"
+                "• No chasing\n\n"
+                "Discipline Focus:\n"
+                "• Patience\n"
+                "• Confirmation\n"
+                "• Precision"
+            )
+            return
+    
+        if command == "artemis-talk":
+            await message.channel.send(
+                " ARTEMIS CHECK-IN\n\n"
+                "Luis — when do you want to run today's market talk?\n\n"
+                "Drop a time (example: 8 PM)\n\n"
+                "We’ll break down:\n"
+                "• What you did\n"
+                "• What you missed\n"
+                "• What the market actually did\n"
+                "• What we improve tomorrow\n\n"
+                "I'm ready when you are."
+            )
+            return
         await run_ai_reply(message, prompt)
 
     except Exception as e:
