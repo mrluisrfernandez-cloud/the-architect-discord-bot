@@ -44,7 +44,26 @@ DEPARTMENT_CHANNELS = {
 MORNING_BRIEF_HOUR = 8
 MORNING_BRIEF_MINUTE = 0
 
+def get_department_channel(guild, department):
+    """Return the Discord channel object for a department."""
+    if department not in DEPARTMENT_CHANNELS:
+        return None
 
+    channel_name = DEPARTMENT_CHANNELS[department]
+
+    for channel in guild.text_channels:
+        if channel.name == channel_name:
+            return channel
+
+    return None
+
+
+async def send_to_department(guild, department, message):
+    """Send a message to a department channel."""
+    channel = get_department_channel(guild, department)
+
+    if channel:
+        await channel.send(message)
 ARCHITECT_CORE_IDENTITY = """
 You are Architect.
 
