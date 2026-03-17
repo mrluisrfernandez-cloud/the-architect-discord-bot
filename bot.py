@@ -2676,48 +2676,28 @@ async def on_message(message: discord.Message):
             return
 
 
-        if command == "save-note":
-            if not body:
-                await message.channel.send("Usage: !architect save-note Review_market_structure_before_entering")
-                return
-
-            entry = f"📝 NOTE SAVED\n{body}"
-            await message.channel.send(entry)
-
-            guild = message.guild
-            if guild is not None:
-                await route_department_report(guild, "knowledge_vault", entry)
-
+    if command == "save-note":
+        if not body:
+            await message.channel.send("Usage: !architect save-note Review_market_structure_before_entering")
             return
 
+        entry = f"📝 NOTE SAVED\n{body}"
+        await message.channel.send(entry)
 
-        if command == "save-idea":
-            if not body:
-                await message.channel.send("Usage: !architect save-idea Build_systems_not_motivation")
-                return
+        guild = message.guild
+        if guild is not None:
+            await route_department_report(guild, "knowledge_vault", entry)
 
-            entry = f"💡 IDEA SAVED\n{body}"
-            await message.channel.send(entry)
+        return
 
-            guild = message.guild
-            if guild is not None:
-                ideas_channel = discord.utils.get(guild.text_channels, name="ideas")
-                if ideas_channel:
-                    await ideas_channel.send(entry)
+    if command == "set-body-baseline":
+        parts = body.split()
 
-                await send_to_department(guild, "architect_analysis", entry)
-
+        if len(parts) < 15:
+            await message.channel.send(
+                "Usage: !architect set-body-baseline 221.6 31 32.8 44.5 145.2 3 15.8 1867 152.8 26.6 15 49.8 7.6 Heavy 45"
+            )
             return
-        
-            
-      if command == "set-body-baseline":
-         parts = body.split()
-
-         if len(parts) < 15:
-             await message.channel.send(
-                 "Usage: !architect set-body-baseline 221.6 31 32.8 44.5 145.2 3 15.8 1867 152.8 26.6 15 49.8 7.6 Heavy 45"
-             )
-             return
 
         set_body_baseline(
             user_id=user_id,
@@ -2750,10 +2730,10 @@ async def on_message(message: discord.Message):
             f"- Metabolic Age: {int(float(parts[14]))}"
         )
         return
-        if command == "body-baseline":
-            await message.channel.send(build_body_baseline_report(user_id))
-            return
 
+    if command == "body-baseline":
+        await message.channel.send(build_body_baseline_report(user_id))
+        return        
         if command == "set-body-goal":
             parts = body.split()
             if len(parts) < 3:
