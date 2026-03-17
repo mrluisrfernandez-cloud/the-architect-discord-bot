@@ -64,6 +64,42 @@ async def send_to_department(guild, department, message):
 
     if channel:
         await channel.send(message)
+
+async def build_morning_brief(user_id):
+    memory = get_memory()
+    user = memory.get(user_id, {})
+
+    fitness = user.get("fitness_profile", {})
+    nutrition = user.get("nutrition_logs", [])
+    workouts = user.get("workout_logs", [])
+    activity = user.get("activity_logs", [])
+
+    brief = []
+
+    brief.append("**ARCHITECT MORNING BRIEF**")
+    brief.append("")
+
+    brief.append("Mission:")
+    brief.append("Stay disciplined. Execute the plan. Build momentum.")
+    brief.append("")
+
+    brief.append("Fitness Focus:")
+    brief.append("Train with intent. Maintain consistency.")
+    brief.append("")
+
+    brief.append("Nutrition Focus:")
+    brief.append("Eat clean. Prioritize protein. Stay hydrated.")
+    brief.append("")
+
+    brief.append("Trading Awareness:")
+    brief.append("Check economic calendar before trading.")
+    brief.append("")
+
+    brief.append("Reflection:")
+    brief.append("Progress comes from disciplined daily action.")
+    brief.append("")
+
+    return "\n".join(brief)
 ARCHITECT_CORE_IDENTITY = """
 You are Architect.
 
