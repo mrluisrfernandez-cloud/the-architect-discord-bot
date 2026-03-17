@@ -64,6 +64,13 @@ async def send_to_department(guild, department, message):
 
     if channel:
         await channel.send(message)
+  async def route_department_report(guild, department, message):
+    # send to the main department
+    await send_to_department(guild, department, message)
+
+    # also send to architect analysis for synthesis
+    if department != "architect_analysis":
+        await send_to_department(guild, "architect_analysis", message)      
 
 async def build_morning_brief(user_id):
     memory = get_memory()
