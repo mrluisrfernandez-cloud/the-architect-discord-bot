@@ -2733,7 +2733,16 @@ async def on_message(message: discord.Message):
         if command == "fitness-adjustment":
             await message.channel.send(build_fitness_adjustment_report(user_id))
             return
-
+        if command == "adjustment-engine":
+            result = analyze_adjustment_engine(user_id)
+            await message.channel.send(
+                
+                "Architect Adjustment Engine:\n"
+        f"- Recommendation: {result.get('recommendation', 'No recommendation')}\n"
+        f"- Training days counted: {result.get('training_days', 0)}\n"
+        f"- Activity days counted: {result.get('activity_days', 0)}"
+            )
+            return
         if command == "set-workout-phase":
             parts = body.split()
             if len(parts) < 2:
