@@ -520,7 +520,42 @@ def get_or_create_user_memory(user_id: str):
 
     return memory, user_data
 
+def analyze_adjustment_engine(user_id: str):
+    memory = get_memory()
+    user = memory.get(user_id, {})
 
+    baseline = user.get("body_baseline", {})
+    goal = user.get("transformation_goal", {})
+    workouts = user.get("workouts", [])
+    activity = user.get("activity_logs", [])
+
+    recommendation = "maintain current plan"
+
+    training_days = len(workouts[-7:])
+    activity_days = len(activity[-7:])
+
+    if training_days < 3:
+        recommendation = "increase training frequency"
+
+    if activity_days < 3:
+        recommendation = "add cardio or daily activity"
+
+    if training_days >= 5 and activity_days >= 5:
+        recommendation = "training load high — ensure recovery"
+
+    adjustment = {
+        "recommendation": recommendation,
+        "training_days": training_days,
+        "activity_days": activity_days
+    }
+
+    user.setdefault("adjustment_engine", {})
+    user["adjustment_engine"]["last_analysis"] = adjustment
+
+    memory[user_id] = user
+    save_memory(memory)
+
+    return adjustment
 def has_meaningful_brief_data(user_id: str) -> bool:
     memory = get_memory()
     user_data = memory.get(user_id, {})
