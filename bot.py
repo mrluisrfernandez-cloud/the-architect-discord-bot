@@ -2646,7 +2646,68 @@ async def on_message(message: discord.Message):
             ok, result_text = await post_morning_brief_to_system_channel(message.guild, user_id)
             await message.channel.send(result_text)
             return
+        if command == "save-book":
+            if not body:
+                await message.channel.send("Usage: !architect save-book Atomic_Habits James_Clear")
+                return
 
+            entry = f"📘 BOOK LOGGED\n{body}"
+            await message.channel.send(entry)
+
+            guild = message.guild
+            if guild is not None:
+                await route_department_report(guild, "knowledge_vault", entry)
+
+            return
+
+
+        if command == "save-lesson":
+            if not body:
+                await message.channel.send("Usage: !architect save-lesson Identity_based_habits_are_stronger_than_motivation")
+                return
+
+            entry = f"🧠 LESSON SAVED\n{body}"
+            await message.channel.send(entry)
+
+            guild = message.guild
+            if guild is not None:
+                await route_department_report(guild, "knowledge_vault", entry)
+
+            return
+
+
+        if command == "save-note":
+            if not body:
+                await message.channel.send("Usage: !architect save-note Review_market_structure_before_entering")
+                return
+
+            entry = f"📝 NOTE SAVED\n{body}"
+            await message.channel.send(entry)
+
+            guild = message.guild
+            if guild is not None:
+                await route_department_report(guild, "knowledge_vault", entry)
+
+            return
+
+
+        if command == "save-idea":
+            if not body:
+                await message.channel.send("Usage: !architect save-idea Build_systems_not_motivation")
+                return
+
+            entry = f"💡 IDEA SAVED\n{body}"
+            await message.channel.send(entry)
+
+            guild = message.guild
+            if guild is not None:
+                ideas_channel = discord.utils.get(guild.text_channels, name="ideas")
+                if ideas_channel:
+                    await ideas_channel.send(entry)
+
+                await send_to_department(guild, "architect_analysis", entry)
+
+            return
         if command == "set-body-baseline":
             parts = body.split()
             if len(parts) < 15:
