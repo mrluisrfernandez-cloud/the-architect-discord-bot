@@ -3313,63 +3313,49 @@ async def on_message(message: discord.Message):
             coach_report = build_coach_report(user_id)
             await message.channel.send(coach_report)
             return
-// =============================
-// ⚔️ ARTEMIS — WATCHLIST SETUP
-// =============================
-if (command === "set-watchlist") {
-  const watchlist = args.join(", ");
-  
-  await message.reply(`⚔️ ARTEMIS WATCHLIST SET
+    if command == "set-watchlist":
+        watchlist = body.strip()
+        if not watchlist:
+            await message.channel.send("Usage: !architect set-watchlist MNQ US30 NAS100 TSLA")
+            return
 
-Tracking:
-${watchlist}
+        save_note(user_id, f"WATCHLIST::{watchlist}")
+        await message.channel.send(
+            f" ARTEMIS WATCHLIST SET\n\nTracking:\n{watchlist}\n\nArtemis is now locked into your market focus."
+        )
+        return
 
-Artemis is now locked into your market focus.`);
-}
+    if command == "artemis-brief":
+        await message.channel.send(
+            " ARTEMIS BRIEF\n\n"
+            "Market Focus:\n"
+            "• Your watchlist is active\n\n"
+            "Macro Awareness:\n"
+            "• Check for CPI / Fed / NFP this week\n\n"
+            "Execution Reminder:\n"
+            "• Wait for HTF alignment\n"
+            "• Execute break & retest\n"
+            "• No chasing\n\n"
+            "Discipline Focus:\n"
+            "• Patience\n"
+            "• Confirmation\n"
+            "• Precision"
+        )
+        return
 
-
-// =============================
-// ⚔️ ARTEMIS — DAILY BRIEF
-// =============================
-if (command === "artemis-brief") {
-  await message.reply(`⚔️ ARTEMIS BRIEF
-
-Market Focus:
-• Your watchlist is active
-
-Macro Awareness:
-• Check for CPI / Fed / NFP this week
-
-Execution Reminder:
-• Wait for HTF alignment
-• Execute break & retest
-• No chasing
-
-Discipline Focus:
-• Patience
-• Confirmation
-• Precision`);
-}
-
-
-// =============================
-// ⚔️ ARTEMIS — MARKET TALK (ACCOUNTABILITY LOOP)
-// =============================
-if (command === "artemis-talk") {
-  await message.reply(`⚔️ ARTEMIS CHECK-IN
-
-Luis — when do you want to run today's market talk?
-
-Drop a time (example: 8 PM)
-
-We’ll break down:
-• What you did
-• What you missed
-• What the market actually did
-• What we improve tomorrow
-
-I'm ready when you are.`);
-}
+    if command == "artemis-talk":
+        await message.channel.send(
+            " ARTEMIS CHECK-IN\n\n"
+            "Luis — when do you want to run today's market talk?\n\n"
+            "Drop a time (example: 8 PM)\n\n"
+            "We’ll break down:\n"
+            "• What you did\n"
+            "• What you missed\n"
+            "• What the market actually did\n"
+            "• What we improve tomorrow\n\n"
+            "I'm ready when you are."
+        )
+        return
         await run_ai_reply(message, prompt)
 
     except Exception as e:
