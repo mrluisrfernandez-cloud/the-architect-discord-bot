@@ -2844,7 +2844,9 @@ async def on_message(message: discord.Message):
             if len(parts) < 2:
                 await message.channel.send("Usage: !architect set-profile 12/24/1986 6:00AM")
                 return
-
+        except Exception as e:
+        print(f"Architect OS Error: {e}")
+        await message.channel.send(f"Architect OS Error: {e}")
             set_profile(user_id, parts[0], parts[1])
             await message.channel.send(
                 "Profile saved:\n"
