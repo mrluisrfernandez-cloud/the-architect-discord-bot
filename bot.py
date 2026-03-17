@@ -2708,7 +2708,7 @@ async def on_message(message: discord.Message):
                 await send_to_department(guild, "architect_analysis", entry)
 
             return
-      if command == "knowledge-report":
+         if command == "knowledge-report":
             entry = "🧠 KNOWLEDGE REPORT\n\nReview your Knowledge Vault to see the evolution of your learning."
             await message.channel.send(entry)
 
@@ -2716,7 +2716,7 @@ async def on_message(message: discord.Message):
             if guild is not None:
                 await route_department_report(guild, "architect_analysis", entry)
 
-            return     
+            return       
             
            
             if command == "set-body-baseline":
