@@ -3512,6 +3512,47 @@ async def on_message(message: discord.Message):
             "This watchlist is now part of your Hybrid Trading framework."
             )
             return
+         if command == "artemis-daily":
+             await message.channel.send(
+            "ARTEMIS DAILY EXECUTION SYSTEM\n\n"
+
+            "Luis — this is your full alignment for today:\n\n"
+
+            "FOCUS:\n"
+            "- Primary: MNQ / NAS100\n"
+            "- Secondary: US30 (only if aligned)\n"
+            "- Confirmation: ES\n\n"
+
+            "WATCHLIST:\n"
+            "- TSLA / NVDA / SPY / QQQ (options)\n"
+            "- EURUSD / GBPUSD / XAUUSD (swing)\n\n"
+
+            "BIAS FRAMEWORK:\n"
+            "- Start HTF (Daily / 4H / 1H)\n"
+            "- Identify liquidity target\n"
+            "- Wait for BOS + displacement\n"
+            "- Enter on pullback to value\n\n"
+
+            "ENTRY MODEL:\n"
+            "- Sweep → reclaim → BOS → pullback → entry\n"
+            "- VWAP / EMA confluence required\n\n"
+
+            "KILL ZONES:\n"
+            "- 9:30 – 10:30\n"
+            "- 11:00 – 12:00\n"
+            "- 1:30 – 3:30\n\n"
+
+            "EXECUTION RULES:\n"
+            "- Do not chase\n"
+            "- Do not predict, react\n"
+            "- No structure = no trade\n"
+            "- Protect capital at all times\n\n"
+
+            "REMINDER:\n"
+            "You are not here to be busy.\n"
+            "You are here to execute with precision."
+            )
+            return
             await run_ai_reply(message, prompt)
 
     except Exception as e:
