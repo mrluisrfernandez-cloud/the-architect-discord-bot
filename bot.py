@@ -3440,7 +3440,7 @@ async def on_message(message: discord.Message):
             )
             return
         if command == "artemis-bias":
-        await message.channel.send(
+            await message.channel.send(
             "ARTEMIS BIAS ENGINE\n\n"
             "Luis — here is your trading framework bias check:\n\n"
 
