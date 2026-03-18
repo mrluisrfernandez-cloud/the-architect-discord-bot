@@ -3665,9 +3665,9 @@ async def on_message(message: discord.Message):
 
             if not missing:
                 await message.channel.send(
-                "ARCHITECT FOLLOW-UP\n\n"
-                "✅ Everything on your tracked list is complete today.\n"
-                "Good work. Stay sharp and close strong."
+                    "ARCHITECT FOLLOW-UP\n\n"
+                    "✅ Everything on your tracked list is complete today.\n"
+                    "Good work. Stay sharp and close strong."
             )
             return
 
