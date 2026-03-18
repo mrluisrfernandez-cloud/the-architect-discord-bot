@@ -3475,8 +3475,8 @@ async def on_message(message: discord.Message):
             "Bias before entry. Structure before size. Discipline before profit."
             )
             return
-                if command == "artemis-watchlist":
-        await message.channel.send(
+        if command == "artemis-watchlist":
+            await message.channel.send(
             "ARTEMIS WATCHLIST BRIDGE\n\n"
             "Luis — here is your current Hybrid Trader watchlist:\n\n"
 
