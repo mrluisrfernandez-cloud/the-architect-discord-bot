@@ -3642,7 +3642,24 @@ async def on_message(message: discord.Message):
             "You are here to execute with precision."
             )
              return
-            
+        if command == "day-status":
+            completed = [key for key, value in daily_state.items() if value]
+            missing = [key for key, value in daily_state.items() if not value]
+
+            completed_text = "\n".join([f"- {item}" for item in completed]) if completed else "- none yet"
+            missing_text = "\n".join([f"- {item}" for item in missing]) if missing else "- nothing missing"
+
+            await message.channel.send(
+                "ARCHITECT DAY STATUS\n\n"
+                f"Completed: {len(completed)}/{len(daily_state)}\n\n"
+                "Done today:\n"
+                f"{completed_text}\n\n"
+                "Still missing:\n"
+                f"{missing_text}\n\n"
+                "Next move:\n"
+                "Complete the highest-priority missing items first."
+            )
+            return
     except Exception as e:
         print(f"Error in on_message: {e}")
         await message.channel.send(
