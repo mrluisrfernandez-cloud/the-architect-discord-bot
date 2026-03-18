@@ -3411,6 +3411,20 @@ async def on_message(message: discord.Message):
             "Consistency builds freedom."
         )
         return
+        if command == "artemis-nudge":
+            await message.channel.send(
+            "ARTEMIS NUDGE\n\n"
+            "Luis — market check-in time.\n\n"
+            "Let me know when you want to run today's market talk.\n"
+            "Example: 8 PM\n\n"
+            "Tonight we'll tighten up:\n"
+            "- what you did well\n"
+            "- what you missed\n"
+            "- what the market actually did\n"
+            "- what we improve tomorrow\n\n"
+            "Stay sharp. Accountability builds edge."
+            )
+            return
         await run_ai_reply(message, prompt)
 
     except Exception as e:
