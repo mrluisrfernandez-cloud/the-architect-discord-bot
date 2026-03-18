@@ -3373,6 +3373,19 @@ async def on_message(message: discord.Message):
                     "Stay sharp this week."
                 )      
             return
+        if command == "artemis-reminder":
+            await message.channel.send(
+            "ARTEMIS REMINDER\n\n"
+            "Luis — quick heads up:\n\n"
+            "High impact event approaching.\n"
+            "Check the time and prepare your levels.\n\n"
+            "Remember:\n"
+            "- No chasing\n"
+            "- Wait for confirmation\n"
+            "- Protect capital\n\n"
+            "Execution over emotion."
+            )
+            return  
         await run_ai_reply(message, prompt)
 
     except Exception as e:
