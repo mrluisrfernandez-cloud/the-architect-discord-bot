@@ -3512,7 +3512,7 @@ async def on_message(message: discord.Message):
             "This watchlist is now part of your Hybrid Trading framework."
             )
             
-         if command == "artemis-daily":
+        if command == "artemis-daily":
              await message.channel.send(
             "ARTEMIS DAILY EXECUTION SYSTEM\n\n"
 
