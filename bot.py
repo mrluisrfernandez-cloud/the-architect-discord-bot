@@ -3439,6 +3439,41 @@ async def on_message(message: discord.Message):
             "Stay sharp. Accountability builds edge."
             )
             return
+            "ARTEMIS MARKET RECAP\n\n"
+"Luis — let's review your execution based on YOUR system:\n\n"
+
+"1. HTF Alignment:\n"
+"- Did you follow Daily / 4H / 1H / 30m bias?\n\n"
+
+"2. Liquidity & Structure:\n"
+"- Where was liquidity taken?\n"
+"- Did you wait for BOS + displacement?\n\n"
+
+"3. Entry Model:\n"
+"- Did you follow:\n"
+"  Sweep → BOS → Pullback → Entry?\n"
+"- Was there VWAP / EMA confluence?\n\n"
+
+"4. Execution Review:\n"
+"- Did you enter ONLY during your timing windows?\n"
+"- Did you avoid chasing?\n\n"
+
+"5. Missed Opportunities:\n"
+"- Did you skip any A+ or A+++ setups?\n"
+"- Why?\n\n"
+
+"6. Market Behavior:\n"
+"- Did price behave as expected for that instrument?\n"
+"- Any structure shifts?\n\n"
+
+"7. Improvement Focus:\n"
+"- One mistake to eliminate\n"
+"- One strength to double down on\n\n"
+
+"Remember:\n"
+"Execution > Emotion\n"
+"Discipline builds consistency.\n"
+"Consistency builds freedom."
             await run_ai_reply(message, prompt)
 
     except Exception as e:
