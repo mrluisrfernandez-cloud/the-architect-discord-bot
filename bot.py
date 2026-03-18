@@ -3664,10 +3664,10 @@ async def on_message(message: discord.Message):
              missing = [key for key, value in daily_state.items() if not value]
 
              if not missing:
-             await message.channel.send(
-                "ARCHITECT FOLLOW-UP\n\n"
-                "✅ Everything on your tracked list is complete today.\n"
-                "Good work. Stay sharp and close strong."
+                 await message.channel.send(
+                     "ARCHITECT FOLLOW-UP\n\n"
+                     "✅ Everything on your tracked list is complete today.\n"
+                     "Good work. Stay sharp and close strong."
             )
             return
 
