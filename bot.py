@@ -3552,7 +3552,7 @@ async def on_message(message: discord.Message):
             "You are not here to be busy.\n"
             "You are here to execute with precision."
             )
-            return
+             return
             
     except Exception as e:
         print(f"Error in on_message: {e}")
