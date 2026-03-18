@@ -3409,8 +3409,8 @@ async def on_message(message: discord.Message):
 
             "Discipline builds consistency.\n"
             "Consistency builds freedom."
-        )
-        return
+            )
+            return
         if command == "artemis-nudge":
             await message.channel.send(
             "ARTEMIS NUDGE\n\n"
