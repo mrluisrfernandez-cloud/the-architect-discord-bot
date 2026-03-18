@@ -24,6 +24,17 @@ GUILD_STATE_FILE = "guild_state.json"
 
 DR_TZ = ZoneInfo("America/Santo_Domingo")
 last_triggered={}
+daily_state = {
+    "wake": False,
+    "movement": False,
+    "breakfast": False,
+    "premarket": False,
+    "lunch": False,
+    "trade_talk_set": False,
+    "recap": False,
+    "reflection": False
+}
+
 CHANNELS = {
     "mission_brief": "mission-brief",
     "daily_checkin": "daily-checkin",
@@ -79,38 +90,47 @@ async def trigger_event(bot, event):
     for guild in bot.guilds:
 
         if event == "wake":
+            daily_state["wake"] = True
             await send_to_department(guild, "system_core",
                 "🌅 Wake up. New day. Lock in.")
 
         elif event == "movement":
+            daily_state["movement"] = True
             await send_to_department(guild, "fitness_lab",
                 "🧘 Time for movement / yoga. Activate your body.")
 
         elif event == "breakfast":
+            daily_state["breakfast"] = True
             await send_to_department(guild, "nutrition_lab",
                 "🍳 Breakfast time. Fuel your system. Log your meal.")
 
         elif event == "trading_brief":
+            daily_state["premarket"] = True
             await send_to_department(guild, "trading_desk",
                 "📊 Trading briefing. Align your bias and prepare.")
 
         elif event == "premarket_check":
+            daily_state["premarket"] = True
             await send_to_department(guild, "trading_desk",
                 "⏰ Premarket check. Be ready for execution.")
 
         elif event == "lunch":
+            daily_state["lunch"] = True
             await send_to_department(guild, "nutrition_lab",
                 "🥗 Lunch time. Eat clean. Stay sharp.")
 
         elif event == "trade_talk_prompt":
+            daily_state["trade_talk_set"] = True
             await send_to_department(guild, "trading_desk",
                 "🧠 What time do you want to review your trades today?")
 
         elif event == "recap":
+            daily_state["recap"] = True
             await send_to_department(guild, "trading_desk",
                 "📉 Market recap. What happened today?")
 
         elif event == "reflection":
+            daily_state["reflection"] = True
             await send_to_department(guild, "cosmic_reflection",
                 "🌙 Reflection time. What did you learn today?")
 def get_department_channel(guild, department):
