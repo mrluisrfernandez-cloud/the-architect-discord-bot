@@ -3660,7 +3660,7 @@ async def on_message(message: discord.Message):
                 "Complete the highest-priority missing items first."
             )
             return
-         if command == "follow-up-check":
+        if command == "follow-up-check":
              missing = [key for key, value in daily_state.items() if not value]
 
              if not missing:
