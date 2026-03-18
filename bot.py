@@ -3554,8 +3554,7 @@ async def on_message(message: discord.Message):
             )
             return
             
-
-        except Exception as e:
+    except Exception as e:
         print(f"Error in on_message: {e}")
         await message.channel.send(
             f"Something went wrong while processing that request.\n\nError: {str(e)[:180]}"
