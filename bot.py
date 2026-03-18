@@ -3553,7 +3553,7 @@ async def on_message(message: discord.Message):
             "You are here to execute with precision."
             )
             return
-            await run_ai_reply(message, prompt)
+            
 
     except Exception as e:
         print(f"Error in on_message: {e}")
