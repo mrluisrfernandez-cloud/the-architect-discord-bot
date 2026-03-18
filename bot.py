@@ -3385,7 +3385,32 @@ async def on_message(message: discord.Message):
             "- Protect capital\n\n"
             "Execution over emotion."
             )
-            return  
+            return
+        if command == "artemis-recap":
+            await message.channel.send(
+            "ARTEMIS MARKET RECAP\n\n"
+            "Luis — let’s review today:\n\n"
+
+            "1. Execution Review:\n"
+            "- What trades did you take?\n"
+            "- Were they aligned with your plan?\n\n"
+
+            "2. Missed Opportunities:\n"
+            "- What setups did you see but skip?\n"
+            "- Why did you hesitate?\n\n"
+
+            "3. Market Behavior:\n"
+            "- What did price actually do vs your expectation?\n"
+            "- Any structure shifts?\n\n"
+
+            "4. Improvement Focus:\n"
+            "- One mistake to eliminate\n"
+            "- One strength to double down on\n\n"
+
+            "Discipline builds consistency.\n"
+            "Consistency builds freedom."
+        )
+        return
         await run_ai_reply(message, prompt)
 
     except Exception as e:
