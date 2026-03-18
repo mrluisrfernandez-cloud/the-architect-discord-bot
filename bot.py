@@ -3473,7 +3473,8 @@ async def on_message(message: discord.Message):
             "- Wait for fair value\n\n"
 
             "Bias before entry. Structure before size. Discipline before profit."
-        )
+            )
+            return
             await run_ai_reply(message, prompt)
 
     except Exception as e:
