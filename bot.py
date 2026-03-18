@@ -3439,41 +3439,41 @@ async def on_message(message: discord.Message):
             "Stay sharp. Accountability builds edge."
             )
             return
-            "ARTEMIS MARKET RECAP\n\n"
-"Luis — let's review your execution based on YOUR system:\n\n"
+        if command == "artemis-bias":
+        await message.channel.send(
+            "ARTEMIS BIAS ENGINE\n\n"
+            "Luis — here is your trading framework bias check:\n\n"
 
-"1. HTF Alignment:\n"
-"- Did you follow Daily / 4H / 1H / 30m bias?\n\n"
+            "1. HTF Bias First:\n"
+            "- Start with Daily / 4H / 1H / 30m\n"
+            "- Do not fight higher timeframe direction\n\n"
 
-"2. Liquidity & Structure:\n"
-"- Where was liquidity taken?\n"
-"- Did you wait for BOS + displacement?\n\n"
+            "2. Liquidity First:\n"
+            "- Where is price likely going for liquidity?\n"
+            "- Mark equal highs/lows, PDH/PDL, session highs/lows\n\n"
 
-"3. Entry Model:\n"
-"- Did you follow:\n"
-"  Sweep → BOS → Pullback → Entry?\n"
-"- Was there VWAP / EMA confluence?\n\n"
+            "3. Structure Second:\n"
+            "- Wait for BOS\n"
+            "- Wait for displacement\n"
+            "- No structure confirmation = no trade\n\n"
 
-"4. Execution Review:\n"
-"- Did you enter ONLY during your timing windows?\n"
-"- Did you avoid chasing?\n\n"
+            "4. Entry Model Focus:\n"
+            "- Sweep -> reclaim -> BOS -> pullback -> entry\n"
+            "- Use VWAP / EMA confluence as confirmation\n\n"
 
-"5. Missed Opportunities:\n"
-"- Did you skip any A+ or A+++ setups?\n"
-"- Why?\n\n"
+            "5. Timing Windows:\n"
+            "- 9:30 to 10:30\n"
+            "- 11:00 to 12:00\n"
+            "- 1:30 to 3:30\n\n"
 
-"6. Market Behavior:\n"
-"- Did price behave as expected for that instrument?\n"
-"- Any structure shifts?\n\n"
+            "6. Execution Reminder:\n"
+            "- Do not predict, react\n"
+            "- Do not chase\n"
+            "- Do not trade into liquidity\n"
+            "- Wait for fair value\n\n"
 
-"7. Improvement Focus:\n"
-"- One mistake to eliminate\n"
-"- One strength to double down on\n\n"
-
-"Remember:\n"
-"Execution > Emotion\n"
-"Discipline builds consistency.\n"
-"Consistency builds freedom."
+            "Bias before entry. Structure before size. Discipline before profit."
+        )
             await run_ai_reply(message, prompt)
 
     except Exception as e:
