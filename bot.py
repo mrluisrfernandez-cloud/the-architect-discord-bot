@@ -3668,8 +3668,8 @@ async def on_message(message: discord.Message):
                      "ARCHITECT FOLLOW-UP\n\n"
                      "✅ Everything on your tracked list is complete today.\n"
                      "Good work. Stay sharp and close strong."
-            )
-            return
+             )
+             return
 
             priority_order = [
                 "wake",
