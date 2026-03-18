@@ -3475,6 +3475,43 @@ async def on_message(message: discord.Message):
             "Bias before entry. Structure before size. Discipline before profit."
             )
             return
+                if command == "artemis-watchlist":
+        await message.channel.send(
+            "ARTEMIS WATCHLIST BRIDGE\n\n"
+            "Luis — here is your current Hybrid Trader watchlist:\n\n"
+
+            "Futures / Indices:\n"
+            "- MNQ\n"
+            "- ES\n"
+            "- YM\n"
+            "- US30\n"
+            "- NAS100\n\n"
+
+            "Options Focus:\n"
+            "- TSLA\n"
+            "- AAPL\n"
+            "- NVDA\n"
+            "- SPY\n"
+            "- QQQ\n\n"
+
+            "Forex Swing Focus:\n"
+            "- EUR/USD\n"
+            "- GBP/USD\n"
+            "- XAU/USD\n"
+            "- USD/JPY\n"
+            "- AUD/USD\n"
+            "- GBP/JPY\n\n"
+
+            "Artemis Notes:\n"
+            "- Primary futures focus: MNQ / NAS100\n"
+            "- US30 only when correlation aligns\n"
+            "- ES used for broader market confirmation\n"
+            "- Options follow the underlying structure\n"
+            "- Forex uses the same liquidity and structure logic\n\n"
+
+            "This watchlist is now part of your Hybrid Trading framework."
+            )
+            return
             await run_ai_reply(message, prompt)
 
     except Exception as e:
