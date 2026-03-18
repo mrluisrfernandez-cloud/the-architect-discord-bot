@@ -1,4 +1,5 @@
 import os
+import asyncio
 import json
 from datetime import datetime, timezone, date
 from zoneinfo import ZoneInfo
@@ -22,7 +23,7 @@ TRADES_FILE = "trades.json"
 GUILD_STATE_FILE = "guild_state.json"
 
 DR_TZ = ZoneInfo("America/Santo_Domingo")
-
+last_triggered={}
 CHANNELS = {
     "mission_brief": "mission-brief",
     "daily_checkin": "daily-checkin",
@@ -43,7 +44,75 @@ DEPARTMENT_CHANNELS = {
 }
 MORNING_BRIEF_HOUR = 8
 MORNING_BRIEF_MINUTE = 0
+SCHEDULE = {
+    "05:00": "wake",
+    "06:00": "movement",
+    "07:00": "breakfast",
+    "08:00": "trading_brief",
+    "09:15": "premarket_check",
+    "12:30": "lunch",
+    "16:30": "trade_talk_prompt",
+    "20:00": "recap",
+    "22:00": "reflection"
+}
+async def scheduler_loop(bot):
+    await bot.wait_until_ready()
 
+    while not bot.is_closed():
+        now = datetime.now(DR_TZ).strftime("%H:%M")
+
+        for time_str, event in SCHEDULE.items():
+            if now == time_str:
+                today_key = f"{time_str}-{datetime.now(DR_TZ).date()}"
+
+                if last_triggered.get(today_key):
+                    continue
+
+                last_triggered[today_key] = True
+
+                await trigger_event(bot, event)
+
+        await asyncio.sleep(60)
+async def trigger_event(bot, event):
+    """Handle scheduled events and route them to the correct department."""
+
+    for guild in bot.guilds:
+
+        if event == "wake":
+            await send_to_department(guild, "system_core",
+                "🌅 Wake up. New day. Lock in.")
+
+        elif event == "movement":
+            await send_to_department(guild, "fitness_lab",
+                "🧘 Time for movement / yoga. Activate your body.")
+
+        elif event == "breakfast":
+            await send_to_department(guild, "nutrition_lab",
+                "🍳 Breakfast time. Fuel your system. Log your meal.")
+
+        elif event == "trading_brief":
+            await send_to_department(guild, "trading_desk",
+                "📊 Trading briefing. Align your bias and prepare.")
+
+        elif event == "premarket_check":
+            await send_to_department(guild, "trading_desk",
+                "⏰ Premarket check. Be ready for execution.")
+
+        elif event == "lunch":
+            await send_to_department(guild, "nutrition_lab",
+                "🥗 Lunch time. Eat clean. Stay sharp.")
+
+        elif event == "trade_talk_prompt":
+            await send_to_department(guild, "trading_desk",
+                "🧠 What time do you want to review your trades today?")
+
+        elif event == "recap":
+            await send_to_department(guild, "trading_desk",
+                "📉 Market recap. What happened today?")
+
+        elif event == "reflection":
+            await send_to_department(guild, "cosmic_reflection",
+                "🌙 Reflection time. What did you learn today?")
 def get_department_channel(guild, department):
     """Return the Discord channel object for a department."""
     if department not in DEPARTMENT_CHANNELS:
@@ -3559,6 +3628,10 @@ async def on_message(message: discord.Message):
         await message.channel.send(
             f"Something went wrong while processing that request.\n\nError: {str(e)[:180]}"
         )
+@bot.event
+async def on_ready():
+    print(f"Logged in as {bot.user}")
 
+    bot.loop.create_task(scheduler_loop(bot))
 
 bot.run(DISCORD_TOKEN)
