@@ -3660,6 +3660,54 @@ async def on_message(message: discord.Message):
                 "Complete the highest-priority missing items first."
             )
             return
+         if command == "follow-up-check":
+             missing = [key for key, value in daily_state.items() if not value]
+
+             if not missing:
+             await message.channel.send(
+                "ARCHITECT FOLLOW-UP\n\n"
+                "✅ Everything on your tracked list is complete today.\n"
+                "Good work. Stay sharp and close strong."
+            )
+            return
+
+            priority_order = [
+                "wake",
+                "movement",
+                "breakfast",
+                "premarket",
+                "lunch",
+                "trade_talk_set",
+                "recap",
+                "reflection"
+            ]
+
+            next_missing = None
+            for item in priority_order:
+                if item in missing:
+                    next_missing = item
+                    break
+
+            follow_up_messages = {
+                "wake": "You still have not checked in for wake-up. Start the day and reset the tone now.",
+                "movement": "Movement is still missing. Get at least a short mobility or yoga block done.",
+                "breakfast": "Breakfast is still missing. Fuel up and log your meal.",
+                "premarket": "Premarket is still missing. Get aligned before execution.",
+                "lunch": "Lunch is still missing. Eat clean and keep energy stable.",
+                "trade_talk_set": "You still have not set today’s trade talk. Lock in a review time.",
+                "recap": "Recap is still missing. Review the market before the day closes.",
+                "reflection": "Reflection is still missing. Close the day with intention."
+            }
+
+            await message.channel.send(
+                "ARCHITECT FOLLOW-UP\n\n"
+                f"Most important missing item:\n- {next_missing}\n\n"
+                "Prompt:\n"
+                f"{follow_up_messages.get(next_missing, 'Handle the next missing item now.')}"
+            )
+            return
+    
+    
     except Exception as e:
         print(f"Error in on_message: {e}")
         await message.channel.send(
