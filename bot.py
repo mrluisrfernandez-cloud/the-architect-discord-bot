@@ -193,6 +193,7 @@ TASK_DEFINITIONS = {
 SCHEDULE = {task["default_time"]: task_id for task_id, task in TASK_DEFINITIONS.items()}
 
 last_triggered = {}
+
 operating_day_state = {
     "date": "",
     "tasks": {},
@@ -486,18 +487,16 @@ def get_or_create_user_memory(user_id: str):
         "watchlist": [],
     })
 
-    uwe = user["user_workout_engine"]
-    uwe.setdefault("workout_phase", "")
-    uwe.setdefault("phase_duration_weeks", 0)
-    uwe.setdefault("equipment", [])
+    user["user_workout_engine"].setdefault("workout_phase", "")
+    user["user_workout_engine"].setdefault("phase_duration_weeks", 0)
+    user["user_workout_engine"].setdefault("equipment", [])
 
-    ctx = user["context"]
-    ctx.setdefault("week_mode", "")
-    ctx.setdefault("week_focus", [])
-    ctx.setdefault("training_mode", "")
-    ctx.setdefault("nutrition_mode", "")
-    ctx.setdefault("daily_goals", [])
-    ctx.setdefault("watchlist", [])
+    user["context"].setdefault("week_mode", "")
+    user["context"].setdefault("week_focus", [])
+    user["context"].setdefault("training_mode", "")
+    user["context"].setdefault("nutrition_mode", "")
+    user["context"].setdefault("daily_goals", [])
+    user["context"].setdefault("watchlist", [])
 
     memory[user_id] = user
     save_memory(memory)
@@ -535,7 +534,7 @@ def get_department_channel(guild: discord.Guild, department: str):
     return None
 
 
-async def send_to_department(guild: discord.Guild | None, department: str, message: str):
+async def send_to_department(guild, department: str, message: str):
     if guild is None:
         return
     channel = get_department_channel(guild, department)
@@ -543,7 +542,7 @@ async def send_to_department(guild: discord.Guild | None, department: str, messa
         await channel.send(message)
 
 
-async def route_department_report(guild: discord.Guild | None, department: str, message: str):
+async def route_department_report(guild, department: str, message: str):
     await send_to_department(guild, department, message)
     if department != "architect_analysis":
         await send_to_department(guild, "architect_analysis", message)
@@ -584,7 +583,6 @@ def get_department_prompt(channel_name: str) -> str:
 def get_channel_mode(channel_name: str) -> str:
     return ARCHITECT_CORE_IDENTITY + "\n\n" + get_department_prompt(channel_name)
 
-
 def build_task_instance(task_id: str, task_def: dict):
     return {
         "id": task_id,
@@ -613,7 +611,6 @@ def build_task_instance(task_id: str, task_def: dict):
 
 def reset_operating_day_state():
     global operating_day_state
-
     tasks = {}
     for task_id, task_def in TASK_DEFINITIONS.items():
         tasks[task_id] = build_task_instance(task_id, task_def)
@@ -630,10 +627,8 @@ def reset_operating_day_state():
 
 def ensure_operating_day_state():
     global operating_day_state
-
     if operating_day_state["date"] != today_dr() or not operating_day_state["tasks"]:
         reset_operating_day_state()
-
     operating_day_state["meta"]["last_updated"] = utc_now_iso()
     return operating_day_state
 
@@ -679,11 +674,11 @@ def mark_task_follow_up_sent(task_id: str):
         task["follow_up_sent"] = True
         task["follow_up_sent_at"] = utc_now_iso()
 
+
 def reschedule_task(task_id: str, new_time: str, notes: str = ""):
     task = get_task_state(task_id)
     if not task:
         return None
-
     task["status"] = "rescheduled"
     task["rescheduled_to"] = new_time
     task["scheduled_time"] = new_time
@@ -729,7 +724,7 @@ def get_next_priority_task():
     return sorted(pending, key=get_task_sort_key)[0]
 
 
-def get_overdue_tasks(now_hhmm: str | None = None):
+def get_overdue_tasks(now_hhmm=None):
     state = ensure_operating_day_state()
     now_hhmm = now_hhmm or dr_now().strftime("%H:%M")
 
@@ -799,8 +794,8 @@ def build_day_status_report():
 
 def build_follow_up_report():
     ensure_operating_day_state()
-
     overdue = get_overdue_tasks()
+
     if overdue:
         next_task = overdue[0]
         return (
@@ -860,7 +855,6 @@ def has_meaningful_brief_data(user_id: str) -> bool:
     ])
 
     return has_context or has_logs or has_profile
-
 
 def has_gym_access(user_id: str) -> bool:
     memory = get_memory()
@@ -1014,6 +1008,7 @@ def compute_transformation_status(user_id: str):
         "recommendation_lines": notes,
     }
 
+
 def build_body_baseline_report(user_id: str) -> str:
     baseline = get_memory().get(user_id, {}).get("body_baseline", {})
     if not baseline:
@@ -1107,7 +1102,6 @@ def build_transformation_status_report(user_id: str) -> str:
         f"Recommendations:\n{recommendations}"
     )
 
-
 def build_fitness_profile_report(user_id: str) -> str:
     fp = get_memory().get(user_id, {}).get("fitness_profile", {})
     if not fp:
@@ -1154,13 +1148,12 @@ def build_weekly_workout_plan(user_id: str) -> str:
     workout_phase = phase_data.get("workout_phase", "not set")
     phase_duration_weeks = phase_data.get("phase_duration_weeks", 0)
     gym_mode = has_gym_access(user_id)
-    mode_label = "gym/hybrid" if gym_mode else "home/bodyweight"
 
     lines = [
         "Architect Weekly Workout Plan:",
         f"- Workout phase: {workout_phase}",
         f"- Planned phase duration: {phase_duration_weeks} week(s)",
-        f"- Build mode used today: {mode_label}",
+        f"- Build mode used today: {'gym/hybrid' if gym_mode else 'home/bodyweight'}",
         f"- Extra equipment: {build_equipment_modifier_text(user_id)}",
         "",
     ]
@@ -1169,7 +1162,8 @@ def build_weekly_workout_plan(user_id: str) -> str:
         block = WEEKLY_WORKOUT_LIBRARY[day_name]
         exercises = block["gym"] if gym_mode else block["home"]
         lines.append(f"{day_name.title()} - {block['title']}")
-        lines.extend([f"- {x}" for x in exercises])
+        for ex in exercises:
+            lines.append(f"- {ex}")
         lines.append("")
 
     return "\n".join(lines).strip()
@@ -1197,14 +1191,14 @@ def build_today_workout(user_id: str) -> str:
         "",
         "Today's exercises:",
     ]
-    lines.extend([f"- {x}" for x in exercises])
+    for ex in exercises:
+        lines.append(f"- {ex}")
     return "\n".join(lines)
 
 
 def build_pushup_plan(user_id: str, total_target: int = 300, max_set: int = 25) -> str:
     total_target = total_target if total_target > 0 else 300
     max_set = max_set if max_set > 0 else 25
-
     return (
         "Architect Push-Up Plan:\n"
         f"- Daily target: {total_target}\n"
@@ -1223,11 +1217,9 @@ def build_activity_report(user_id: str) -> str:
         return "No activity data saved yet. Use !architect log-activity."
 
     today_logs = [x for x in logs if x.get("date") == today_dr()]
-    total_logs = len(logs)
-
     return (
         "Architect Activity Report:\n"
-        f"- Activity sessions logged: {total_logs}\n"
+        f"- Activity sessions logged: {len(logs)}\n"
         f"- Today's active calories: {sum(x.get('active_calories', 0) for x in today_logs):.0f}\n"
         f"- Today's exercise minutes: {sum(x.get('exercise_minutes', 0) for x in today_logs):.0f}\n"
         f"- Today's steps: {sum(x.get('steps', 0) for x in today_logs)}"
@@ -1249,6 +1241,7 @@ def build_knowledge_report(user_id: str):
         report += f"\nLatest idea:\n- {ideas[-1]['text']}\n"
     return report
 
+
 def build_pnl_report(user_id: str):
     pnl_logs = get_memory().get(user_id, {}).get("pnl_logs", [])
     if not pnl_logs:
@@ -1259,7 +1252,6 @@ def build_pnl_report(user_id: str):
     green = sum(1 for x in pnl_logs if x["value"] > 0)
     red = sum(1 for x in pnl_logs if x["value"] < 0)
     flat = sum(1 for x in pnl_logs if x["value"] == 0)
-
     best_day = max(pnl_logs, key=lambda x: x["value"])
     worst_day = min(pnl_logs, key=lambda x: x["value"])
     today_total = sum(x["value"] for x in pnl_logs if x["date"] == today_dr())
@@ -1295,25 +1287,22 @@ def build_daily_report(user_id: str):
     mistakes_today = [x for x in memory.get("mistakes", []) if x["date"] == today]
     trades_today = [x for x in trades if x["timestamp"][:10] == today]
 
-    return (
-        "Architect Daily System Report:\n"
-        f"- Date: {today}\n"
-        f"- Sleep: {sleep_today[-1]['hours']} hrs\n" if sleep_today else "Architect Daily System Report:\n"
-        f"- Date: {today}\n- Sleep: No sleep logged\n"
-    ) + (
-        f"- Mood: {mood_today[-1]['score']}\n" if mood_today else "- Mood: No mood logged\n"
-    ) + (
-        f"- Focus: {focus_today[-1]['score']}\n" if focus_today else "- Focus: No focus logged\n"
-    ) + (
-        f"- Habits logged today: {len(habits_today)}\n"
-        f"- Workouts logged today: {len(workouts_today)}\n"
-        f"- Notes saved today: {len(notes_today)}\n"
-        f"- Ideas saved today: {len(ideas_today)}\n"
-        f"- Wins logged today: {len(wins_today)}\n"
-        f"- Mistakes logged today: {len(mistakes_today)}\n"
-        f"- Trades logged today: {len(trades_today)}\n"
-        f"- PnL today: {sum(x['value'] for x in pnl_today):.2f}"
-    )
+    lines = [
+        "Architect Daily System Report:",
+        f"- Date: {today}",
+        f"- Sleep: {sleep_today[-1]['hours']} hrs" if sleep_today else "- Sleep: No sleep logged",
+        f"- Mood: {mood_today[-1]['score']}" if mood_today else "- Mood: No mood logged",
+        f"- Focus: {focus_today[-1]['score']}" if focus_today else "- Focus: No focus logged",
+        f"- Habits logged today: {len(habits_today)}",
+        f"- Workouts logged today: {len(workouts_today)}",
+        f"- Notes saved today: {len(notes_today)}",
+        f"- Ideas saved today: {len(ideas_today)}",
+        f"- Wins logged today: {len(wins_today)}",
+        f"- Mistakes logged today: {len(mistakes_today)}",
+        f"- Trades logged today: {len(trades_today)}",
+        f"- PnL today: {sum(x['value'] for x in pnl_today):.2f}",
+    ]
+    return "\n".join(lines)
 
 
 def build_week_plan(user_id: str):
@@ -1332,7 +1321,6 @@ def build_week_plan(user_id: str):
         f"- Watchlist: {watchlist_text}\n"
         f"- Latest daily goal: {latest_goal}"
     )
-
 
 def build_morning_brief(user_id: str):
     user = get_memory().get(user_id, {})
@@ -1377,16 +1365,13 @@ def build_profile_text(user_id: str) -> str:
     user = get_memory().get(user_id, {})
     user_trades = get_trades().get(user_id, [])
     lines = ["Profile snapshot:"]
-
     profile = user.get("profile", {})
     if profile:
         lines.append(f"- Birth date: {profile.get('birth_date', 'Not set')}")
         lines.append(f"- Birth time: {profile.get('birth_time', 'Not set')}")
-
     if user.get("body_baseline"):
         bb = user["body_baseline"]
         lines.append(f"- Body baseline: {bb.get('weight_lb', 0):.1f} lb | BF {bb.get('body_fat_percent', 0):.1f}% | BMI {bb.get('bmi', 0):.1f}")
-
     lines.append(f"- Total trades logged: {len(user_trades)}")
     return "\n".join(lines)
 
@@ -1394,7 +1379,6 @@ def build_profile_text(user_id: str) -> str:
 def build_weekly_report(user_id: str) -> str:
     user = get_memory().get(user_id, {})
     trades = get_trades().get(user_id, [])
-
     return (
         "Weekly performance snapshot:\n"
         f"- Weight logs: {len(user.get('weights', []))}\n"
@@ -1470,7 +1454,6 @@ def build_trade_stats(user_id: str) -> str:
     wins = sum(1 for t in structured if t.get("result_pts", 0) > 0)
     losses = sum(1 for t in structured if t.get("result_pts", 0) < 0)
     breakeven = sum(1 for t in structured if t.get("result_pts", 0) == 0)
-
     avg_result = sum(t.get("result_pts", 0) for t in structured) / total
     avg_realized_r = sum(t.get("realized_r", 0) for t in structured) / total
     avg_planned_r = sum(t.get("planned_r", 0) for t in structured) / total
@@ -1528,6 +1511,7 @@ def build_coach_report(user_id: str) -> str:
         "- Compare best setup vs all others after more sample size.\n"
         "- Watch whether realized R keeps lagging planned R."
     )
+
 
 async def send_automatic_morning_brief(guild: discord.Guild):
     guild_id = str(guild.id)
@@ -1728,28 +1712,6 @@ async def on_message(message: discord.Message):
 
         if command == "follow-up-check":
             await message.channel.send(build_follow_up_report())
-            return
-
-        if command == "save-book":
-            if not body:
-                await message.channel.send("Usage: !architect save-book Atomic_Habits James_Clear")
-                return
-            entry = f"📘 BOOK LOGGED\n{body}"
-            append_memory_item(user_id, "notes", {"text": entry, "timestamp": utc_now_iso()})
-            await message.channel.send(entry)
-            if message.guild:
-                await route_department_report(message.guild, "knowledge_vault", entry)
-            return
-
-        if command == "save-lesson":
-            if not body:
-                await message.channel.send("Usage: !architect save-lesson Identity_based_habits_are_stronger_than_motivation")
-                return
-            entry = f"🧠 LESSON SAVED\n{body}"
-            append_memory_item(user_id, "notes", {"text": entry, "timestamp": utc_now_iso()})
-            await message.channel.send(entry)
-            if message.guild:
-                await route_department_report(message.guild, "knowledge_vault", entry)
             return
 
         if command == "save-note":
@@ -1967,65 +1929,8 @@ async def on_message(message: discord.Message):
             await message.channel.send(build_fitness_profile_report(user_id))
             return
 
-        if command == "update-resources":
-            if not body:
-                await message.channel.send("Usage: !architect update-resources full_gym_home_cardio")
-                return
-            memory, user = get_or_create_user_memory(user_id)
-            user.setdefault("fitness_profile", {})
-            user["fitness_profile"]["available_resources"] = body
-            user["fitness_profile"]["timestamp"] = utc_now_iso()
-            memory[user_id] = user
-            save_memory(memory)
-            await message.channel.send(f"Resources updated: {body}")
-            return
-
-        if command == "update-training-days":
-            if not body:
-                await message.channel.send("Usage: !architect update-training-days 6")
-                return
-            memory, user = get_or_create_user_memory(user_id)
-            user.setdefault("fitness_profile", {})
-            user["fitness_profile"]["training_days_available"] = int(float(body))
-            user["fitness_profile"]["timestamp"] = utc_now_iso()
-            memory[user_id] = user
-            save_memory(memory)
-            await message.channel.send(f"Training days updated: {int(float(body))}")
-            return
-
-        if command == "update-fitness-mode":
-            parts = body.split()
-            if len(parts) < 2:
-                await message.channel.send("Usage: !architect update-fitness-mode hybrid strength_recomp")
-                return
-            memory, user = get_or_create_user_memory(user_id)
-            user.setdefault("fitness_profile", {})
-            user["fitness_profile"]["current_training_mode"] = parts[0]
-            user["fitness_profile"]["current_phase"] = parts[1]
-            user["fitness_profile"]["timestamp"] = utc_now_iso()
-            memory[user_id] = user
-            save_memory(memory)
-            await message.channel.send(f"Fitness mode updated:\n- Training mode: {parts[0]}\n- Phase: {parts[1]}")
-            return
-
-        if command == "adjust-goal-timeline":
-            if not body:
-                await message.channel.send("Usage: !architect adjust-goal-timeline 2026-06-15")
-                return
-            memory, user = get_or_create_user_memory(user_id)
-            user.setdefault("transformation_goal", {})
-            user["transformation_goal"]["deadline_date"] = body
-            user["transformation_goal"]["timestamp"] = utc_now_iso()
-            memory[user_id] = user
-            save_memory(memory)
-            await message.channel.send(f"Transformation deadline updated: {body}")
-            return
-
         if command == "fitness-adjustment":
-            report = build_fitness_adjustment_report(user_id)
-            await message.channel.send(report)
-            if message.guild:
-                await send_to_department(message.guild, "fitness_lab", report)
+            await message.channel.send(build_fitness_adjustment_report(user_id))
             return
 
         if command == "adjustment-engine":
@@ -2146,10 +2051,6 @@ async def on_message(message: discord.Message):
                 return
             append_memory_item(user_id, "workouts", {"text": body, "date": today_dr(), "timestamp": utc_now_iso()})
             await message.channel.send(f"Workout logged: {body}")
-            return
-
-        if command == "life-report":
-            await message.channel.send(build_daily_report(user_id))
             return
 
         if command == "set-week-mode":
