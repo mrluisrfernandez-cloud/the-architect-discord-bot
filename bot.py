@@ -50,30 +50,6 @@ DEPARTMENT_CHANNELS = {
 MORNING_BRIEF_HOUR = 8
 MORNING_BRIEF_MINUTE = 0
 
-SCHEDULE = {
-    "05:00": "wake",
-    "06:00": "movement",
-    "07:00": "breakfast",
-    "08:00": "trading_brief",
-    "09:15": "premarket_check",
-    "12:30": "lunch",
-    "16:30": "trade_talk_prompt",
-    "20:00": "recap",
-    "22:00": "reflection",
-}
-
-last_triggered = {}
-daily_state = {
-    "wake": False,
-    "movement": False,
-    "breakfast": False,
-    "premarket": False,
-    "lunch": False,
-    "trade_talk_set": False,
-    "recap": False,
-    "reflection": False,
-}
-
 ARCHITECT_CORE_IDENTITY = """
 You are Architect.
 
@@ -111,6 +87,120 @@ Always help Luis move toward:
 - intelligent self-correction
 - long-term growth
 """
+
+TASK_DEFINITIONS = {
+    "wake": {
+        "id": "wake",
+        "label": "Wake Up",
+        "department": "system_core",
+        "default_time": "05:00",
+        "priority": 100,
+        "required": True,
+        "time_sensitive": True,
+        "can_skip_if_late": False,
+        "follow_up_prompt": "You still have not checked in for wake-up. Start the day and reset the tone now.",
+    },
+    "movement": {
+        "id": "movement",
+        "label": "Movement / Yoga",
+        "department": "fitness_lab",
+        "default_time": "06:00",
+        "priority": 90,
+        "required": True,
+        "time_sensitive": True,
+        "can_skip_if_late": True,
+        "follow_up_prompt": "Movement is still missing. Get at least a short mobility or yoga block done.",
+    },
+    "breakfast": {
+        "id": "breakfast",
+        "label": "Breakfast / Fuel",
+        "department": "nutrition_lab",
+        "default_time": "07:00",
+        "priority": 88,
+        "required": True,
+        "time_sensitive": True,
+        "can_skip_if_late": False,
+        "follow_up_prompt": "Breakfast is still missing. Fuel up and log your meal.",
+    },
+    "trading_brief": {
+        "id": "trading_brief",
+        "label": "Trading Brief",
+        "department": "trading_desk",
+        "default_time": "08:00",
+        "priority": 92,
+        "required": True,
+        "time_sensitive": True,
+        "can_skip_if_late": False,
+        "follow_up_prompt": "Trading briefing is still missing. Align bias and prepare now.",
+    },
+    "premarket_check": {
+        "id": "premarket_check",
+        "label": "Premarket Check",
+        "department": "trading_desk",
+        "default_time": "09:15",
+        "priority": 95,
+        "required": True,
+        "time_sensitive": True,
+        "can_skip_if_late": False,
+        "follow_up_prompt": "Premarket is still missing. Get aligned before execution.",
+    },
+    "lunch": {
+        "id": "lunch",
+        "label": "Lunch",
+        "department": "nutrition_lab",
+        "default_time": "12:30",
+        "priority": 70,
+        "required": True,
+        "time_sensitive": False,
+        "can_skip_if_late": False,
+        "follow_up_prompt": "Lunch is still missing. Eat clean and keep energy stable.",
+    },
+    "trade_talk_prompt": {
+        "id": "trade_talk_prompt",
+        "label": "Trade Talk Scheduling",
+        "department": "trading_desk",
+        "default_time": "16:30",
+        "priority": 80,
+        "required": True,
+        "time_sensitive": False,
+        "can_skip_if_late": False,
+        "follow_up_prompt": "You still have not set today’s trade talk. Lock in a review time.",
+    },
+    "recap": {
+        "id": "recap",
+        "label": "Market Recap",
+        "department": "trading_desk",
+        "default_time": "20:00",
+        "priority": 75,
+        "required": True,
+        "time_sensitive": False,
+        "can_skip_if_late": False,
+        "follow_up_prompt": "Recap is still missing. Review the market before the day closes.",
+    },
+    "reflection": {
+        "id": "reflection",
+        "label": "Reflection",
+        "department": "cosmic_reflection",
+        "default_time": "22:00",
+        "priority": 60,
+        "required": True,
+        "time_sensitive": False,
+        "can_skip_if_late": True,
+        "follow_up_prompt": "Reflection is still missing. Close the day with intention.",
+    },
+}
+
+SCHEDULE = {task["default_time"]: task_id for task_id, task in TASK_DEFINITIONS.items()}
+
+last_triggered = {}
+operating_day_state = {
+    "date": "",
+    "tasks": {},
+    "meta": {
+        "day_started_at": "",
+        "last_updated": "",
+    }
+}
 
 WEEKLY_WORKOUT_LIBRARY = {
     "monday": {
@@ -235,7 +325,6 @@ WEEKLY_WORKOUT_LIBRARY = {
     },
 }
 
-
 def utc_now_iso():
     return datetime.now(timezone.utc).isoformat()
 
@@ -347,9 +436,6 @@ def get_or_create_user_memory(user_id: str):
         "focus_logs": [],
         "workouts": [],
         "activity_logs": [],
-        "nutrition_logs": [],
-        "recovery_logs": [],
-        "workout_logs": [],
         "body_baseline": {},
         "body_goal": {},
         "body_change": {},
@@ -379,8 +465,7 @@ def get_or_create_user_memory(user_id: str):
     for key in [
         "weights", "goals", "notes", "ideas", "habits", "checkins",
         "pnl_logs", "wins", "mistakes", "sleep_logs", "mood_logs",
-        "focus_logs", "workouts", "activity_logs", "nutrition_logs",
-        "recovery_logs", "workout_logs"
+        "focus_logs", "workouts", "activity_logs"
     ]:
         user.setdefault(key, [])
 
@@ -426,11 +511,18 @@ def append_memory_item(user_id: str, key: str, payload: dict):
     save_memory(memory)
 
 
-def set_memory_value(user_id: str, key: str, value):
-    memory, user = get_or_create_user_memory(user_id)
-    user[key] = value
-    memory[user_id] = user
-    save_memory(memory)
+def find_text_channel_by_name(guild: discord.Guild, channel_name: str):
+    for channel in guild.text_channels:
+        if channel.name == channel_name:
+            return channel
+    return None
+
+
+def get_system_channel(guild: discord.Guild, key: str):
+    channel_name = CHANNELS.get(key, "")
+    if not channel_name:
+        return None
+    return find_text_channel_by_name(guild, channel_name)
 
 
 def get_department_channel(guild: discord.Guild, department: str):
@@ -455,20 +547,6 @@ async def route_department_report(guild: discord.Guild | None, department: str, 
     await send_to_department(guild, department, message)
     if department != "architect_analysis":
         await send_to_department(guild, "architect_analysis", message)
-
-
-def find_text_channel_by_name(guild: discord.Guild, channel_name: str):
-    for channel in guild.text_channels:
-        if channel.name == channel_name:
-            return channel
-    return None
-
-
-def get_system_channel(guild: discord.Guild, key: str):
-    channel_name = CHANNELS.get(key, "")
-    if not channel_name:
-        return None
-    return find_text_channel_by_name(guild, channel_name)
 
 
 def extract_prompt(content: str) -> str:
@@ -505,6 +583,248 @@ def get_department_prompt(channel_name: str) -> str:
 
 def get_channel_mode(channel_name: str) -> str:
     return ARCHITECT_CORE_IDENTITY + "\n\n" + get_department_prompt(channel_name)
+
+
+def build_task_instance(task_id: str, task_def: dict):
+    return {
+        "id": task_id,
+        "label": task_def["label"],
+        "department": task_def["department"],
+        "default_time": task_def["default_time"],
+        "scheduled_time": task_def["default_time"],
+        "priority": task_def["priority"],
+        "required": task_def["required"],
+        "time_sensitive": task_def["time_sensitive"],
+        "can_skip_if_late": task_def["can_skip_if_late"],
+        "follow_up_prompt": task_def["follow_up_prompt"],
+        "status": "pending",
+        "completed": False,
+        "completed_at": "",
+        "missed_at": "",
+        "skipped_at": "",
+        "rescheduled_to": "",
+        "follow_up_sent": False,
+        "follow_up_sent_at": "",
+        "late": False,
+        "last_prompt_sent_at": "",
+        "notes": "",
+    }
+
+
+def reset_operating_day_state():
+    global operating_day_state
+
+    tasks = {}
+    for task_id, task_def in TASK_DEFINITIONS.items():
+        tasks[task_id] = build_task_instance(task_id, task_def)
+
+    operating_day_state = {
+        "date": today_dr(),
+        "tasks": tasks,
+        "meta": {
+            "day_started_at": utc_now_iso(),
+            "last_updated": utc_now_iso(),
+        }
+    }
+
+
+def ensure_operating_day_state():
+    global operating_day_state
+
+    if operating_day_state["date"] != today_dr() or not operating_day_state["tasks"]:
+        reset_operating_day_state()
+
+    operating_day_state["meta"]["last_updated"] = utc_now_iso()
+    return operating_day_state
+
+
+def get_task_state(task_id: str):
+    state = ensure_operating_day_state()
+    return state["tasks"].get(task_id)
+
+
+def set_task_status(task_id: str, status: str, notes: str = ""):
+    state = ensure_operating_day_state()
+    task = state["tasks"].get(task_id)
+    if not task:
+        return None
+
+    now_iso = utc_now_iso()
+    task["status"] = status
+    task["notes"] = notes
+    state["meta"]["last_updated"] = now_iso
+
+    if status == "completed":
+        task["completed"] = True
+        task["completed_at"] = now_iso
+    elif status == "missed":
+        task["completed"] = False
+        task["missed_at"] = now_iso
+    elif status == "skipped":
+        task["completed"] = False
+        task["skipped_at"] = now_iso
+
+    return task
+
+
+def mark_task_prompt_sent(task_id: str):
+    task = get_task_state(task_id)
+    if task:
+        task["last_prompt_sent_at"] = utc_now_iso()
+
+
+def mark_task_follow_up_sent(task_id: str):
+    task = get_task_state(task_id)
+    if task:
+        task["follow_up_sent"] = True
+        task["follow_up_sent_at"] = utc_now_iso()
+
+def reschedule_task(task_id: str, new_time: str, notes: str = ""):
+    task = get_task_state(task_id)
+    if not task:
+        return None
+
+    task["status"] = "rescheduled"
+    task["rescheduled_to"] = new_time
+    task["scheduled_time"] = new_time
+    task["notes"] = notes
+    task["late"] = True
+    operating_day_state["meta"]["last_updated"] = utc_now_iso()
+    return task
+
+
+def get_pending_tasks():
+    state = ensure_operating_day_state()
+    return [task for task in state["tasks"].values() if task["status"] in ("pending", "rescheduled") and not task["completed"]]
+
+
+def get_completed_tasks():
+    state = ensure_operating_day_state()
+    return [task for task in state["tasks"].values() if task["completed"]]
+
+
+def get_missed_tasks():
+    state = ensure_operating_day_state()
+    return [task for task in state["tasks"].values() if task["status"] == "missed"]
+
+
+def get_skipped_tasks():
+    state = ensure_operating_day_state()
+    return [task for task in state["tasks"].values() if task["status"] == "skipped"]
+
+
+def get_rescheduled_tasks():
+    state = ensure_operating_day_state()
+    return [task for task in state["tasks"].values() if task["status"] == "rescheduled"]
+
+
+def get_task_sort_key(task: dict):
+    return (-task["priority"], task["scheduled_time"])
+
+
+def get_next_priority_task():
+    pending = get_pending_tasks()
+    if not pending:
+        return None
+    return sorted(pending, key=get_task_sort_key)[0]
+
+
+def get_overdue_tasks(now_hhmm: str | None = None):
+    state = ensure_operating_day_state()
+    now_hhmm = now_hhmm or dr_now().strftime("%H:%M")
+
+    overdue = []
+    for task in state["tasks"].values():
+        if task["completed"]:
+            continue
+        if task["status"] in ("skipped", "missed"):
+            continue
+        if task["scheduled_time"] < now_hhmm:
+            overdue.append(task)
+
+    return sorted(overdue, key=get_task_sort_key)
+
+
+def get_daily_state_counts():
+    state = ensure_operating_day_state()
+    tasks = list(state["tasks"].values())
+
+    return {
+        "total": len(tasks),
+        "completed": len([t for t in tasks if t["completed"]]),
+        "pending": len([t for t in tasks if t["status"] in ("pending", "rescheduled") and not t["completed"]]),
+        "missed": len([t for t in tasks if t["status"] == "missed"]),
+        "skipped": len([t for t in tasks if t["status"] == "skipped"]),
+        "rescheduled": len([t for t in tasks if t["status"] == "rescheduled"]),
+    }
+
+
+def build_day_status_report():
+    ensure_operating_day_state()
+
+    completed = get_completed_tasks()
+    pending = get_pending_tasks()
+    missed = get_missed_tasks()
+    skipped = get_skipped_tasks()
+    rescheduled = get_rescheduled_tasks()
+
+    completed_text = "\n".join([f"- {t['label']}" for t in completed]) if completed else "- none yet"
+    pending_text = "\n".join([f"- {t['label']} ({t['scheduled_time']})" for t in sorted(pending, key=get_task_sort_key)]) if pending else "- nothing pending"
+    missed_text = "\n".join([f"- {t['label']}" for t in missed]) if missed else "- none"
+    skipped_text = "\n".join([f"- {t['label']}" for t in skipped]) if skipped else "- none"
+    rescheduled_text = "\n".join([f"- {t['label']} -> {t['scheduled_time']}" for t in rescheduled]) if rescheduled else "- none"
+
+    counts = get_daily_state_counts()
+
+    return (
+        "ARCHITECT DAY STATUS\n\n"
+        f"Date: {operating_day_state['date']}\n"
+        f"Completed: {counts['completed']}/{counts['total']}\n"
+        f"Pending: {counts['pending']}\n"
+        f"Missed: {counts['missed']}\n"
+        f"Skipped: {counts['skipped']}\n"
+        f"Rescheduled: {counts['rescheduled']}\n\n"
+        "Completed:\n"
+        f"{completed_text}\n\n"
+        "Pending:\n"
+        f"{pending_text}\n\n"
+        "Missed:\n"
+        f"{missed_text}\n\n"
+        "Skipped:\n"
+        f"{skipped_text}\n\n"
+        "Rescheduled:\n"
+        f"{rescheduled_text}"
+    )
+
+
+def build_follow_up_report():
+    ensure_operating_day_state()
+
+    overdue = get_overdue_tasks()
+    if overdue:
+        next_task = overdue[0]
+        return (
+            "ARCHITECT FOLLOW-UP\n\n"
+            f"Most important overdue item:\n- {next_task['label']}\n\n"
+            "Prompt:\n"
+            f"{next_task['follow_up_prompt']}"
+        )
+
+    next_task = get_next_priority_task()
+    if not next_task:
+        return (
+            "ARCHITECT FOLLOW-UP\n\n"
+            "✅ Everything on your tracked list is complete today.\n"
+            "Good work. Stay sharp and close strong."
+        )
+
+    return (
+        "ARCHITECT FOLLOW-UP\n\n"
+        f"Next priority item:\n- {next_task['label']} ({next_task['scheduled_time']})\n\n"
+        "Prompt:\n"
+        f"{next_task['follow_up_prompt']}"
+    )
+
 
 def has_meaningful_brief_data(user_id: str) -> bool:
     memory = get_memory()
@@ -548,6 +868,7 @@ def has_gym_access(user_id: str) -> bool:
     fp = user.get("fitness_profile", {})
     resources = str(fp.get("available_resources", "")).lower()
     equipment = [x.lower() for x in user.get("user_workout_engine", {}).get("equipment", [])]
+
     return (
         "gym" in resources or
         "full_gym" in resources or
@@ -558,10 +879,53 @@ def has_gym_access(user_id: str) -> bool:
 
 
 def build_equipment_modifier_text(user_id: str) -> str:
+    equipment = get_memory().get(user_id, {}).get("user_workout_engine", {}).get("equipment", [])
+    return ", ".join(equipment) if equipment else "No extra equipment updated yet."
+
+
+def analyze_adjustment_engine(user_id: str):
     memory = get_memory()
     user = memory.get(user_id, {})
-    equipment = user.get("user_workout_engine", {}).get("equipment", [])
-    return ", ".join(equipment) if equipment else "No extra equipment updated yet."
+
+    workouts = user.get("workouts", [])
+    activity = user.get("activity_logs", [])
+
+    training_days = len(workouts[-7:])
+    activity_days = len(activity[-7:])
+
+    recommendation = "maintain current plan"
+    if training_days < 3:
+        recommendation = "increase training frequency"
+    if activity_days < 3:
+        recommendation = "add cardio or daily activity"
+    if training_days >= 5 and activity_days >= 5:
+        recommendation = "training load high — ensure recovery"
+
+    memory, user = get_or_create_user_memory(user_id)
+    user["adjustment_engine"]["last_analysis"] = {
+        "recommendation": recommendation,
+        "training_days": training_days,
+        "activity_days": activity_days,
+    }
+    user["adjustment_engine"]["last_updated"] = utc_now_iso()
+    memory[user_id] = user
+    save_memory(memory)
+
+    return user["adjustment_engine"]["last_analysis"]
+
+
+def build_mission_text() -> str:
+    return (
+        "Architect Mission:\n"
+        "Architect exists to help Luis build a disciplined, high-performance life.\n\n"
+        "Its purpose is to serve as:\n"
+        "- a coach\n"
+        "- a strategist\n"
+        "- a second brain\n"
+        "- a system builder\n\n"
+        "Architect helps across trading, fitness, nutrition, knowledge, execution, mindset, and reflection.\n"
+        "It is designed to turn data, ideas, habits, and behavior into clear next steps and steady improvement."
+    )
 
 
 def compute_transformation_status(user_id: str):
@@ -627,12 +991,7 @@ def compute_transformation_status(user_id: str):
     else:
         notes.append("You may already be near target. Shift focus toward body quality and muscle retention.")
 
-    if training_days > 0:
-        if pounds_per_week > 1.25 and training_days < 5:
-            notes.append("Adding one more training day could help if recovery is stable.")
-        elif training_days >= 5:
-            notes.append("Training frequency is already solid. Recovery and food precision matter more now.")
-    else:
+    if training_days == 0:
         notes.append("Training days are not set yet. Set the fitness profile so Architect can coach better.")
 
     return {
@@ -655,56 +1014,8 @@ def compute_transformation_status(user_id: str):
         "recommendation_lines": notes,
     }
 
-
-def analyze_adjustment_engine(user_id: str):
-    memory = get_memory()
-    user = memory.get(user_id, {})
-
-    workouts = user.get("workouts", [])
-    activity = user.get("activity_logs", [])
-
-    training_days = len(workouts[-7:])
-    activity_days = len(activity[-7:])
-
-    recommendation = "maintain current plan"
-    if training_days < 3:
-        recommendation = "increase training frequency"
-    if activity_days < 3:
-        recommendation = "add cardio or daily activity"
-    if training_days >= 5 and activity_days >= 5:
-        recommendation = "training load high — ensure recovery"
-
-    adjustment = {
-        "recommendation": recommendation,
-        "training_days": training_days,
-        "activity_days": activity_days,
-    }
-
-    memory, user = get_or_create_user_memory(user_id)
-    user["adjustment_engine"]["last_analysis"] = adjustment
-    user["adjustment_engine"]["last_updated"] = utc_now_iso()
-    memory[user_id] = user
-    save_memory(memory)
-    return adjustment
-
-
-def build_mission_text() -> str:
-    return (
-        "Architect Mission:\n"
-        "Architect exists to help Luis build a disciplined, high-performance life.\n\n"
-        "Its purpose is to serve as:\n"
-        "- a coach\n"
-        "- a strategist\n"
-        "- a second brain\n"
-        "- a system builder\n\n"
-        "Architect helps across trading, fitness, nutrition, knowledge, execution, mindset, and reflection.\n"
-        "It is designed to turn data, ideas, habits, and behavior into clear next steps and steady improvement."
-    )
-
-
 def build_body_baseline_report(user_id: str) -> str:
-    user = get_memory().get(user_id, {})
-    baseline = user.get("body_baseline", {})
+    baseline = get_memory().get(user_id, {}).get("body_baseline", {})
     if not baseline:
         return "No body baseline saved yet. Use !architect set-body-baseline ..."
     return (
@@ -774,7 +1085,9 @@ def build_transformation_status_report(user_id: str) -> str:
         return "No transformation goal saved yet. Use !architect set-transformation-goal ..."
     if not status.get("valid", False):
         return f"Transformation status error: {status.get('error', 'Unknown error')}"
+
     recommendations = "\n".join([f"- {x}" for x in status.get("recommendation_lines", [])])
+
     return (
         "Architect Transformation Status:\n"
         f"- Goal type: {status.get('goal_type', 'Not set')}\n"
@@ -813,11 +1126,9 @@ def build_fitness_profile_report(user_id: str) -> str:
 
 
 def build_fitness_adjustment_report(user_id: str) -> str:
-    memory = get_memory()
-    user = memory.get(user_id, {})
+    user = get_memory().get(user_id, {})
     fitness_profile = user.get("fitness_profile", {})
     transformation_goal = user.get("transformation_goal", {})
-    activity_baseline = user.get("activity_baseline", {})
     status = compute_transformation_status(user_id)
 
     if not fitness_profile:
@@ -827,61 +1138,19 @@ def build_fitness_adjustment_report(user_id: str) -> str:
     if not status or not status.get("valid", False):
         return f"Fitness adjustment unavailable: {status.get('error', 'Missing valid transformation data') if status else 'Missing transformation data'}"
 
-    mode = fitness_profile.get("current_training_mode", "Not set")
-    phase = fitness_profile.get("current_phase", "Not set")
-    days = safe_int(fitness_profile.get("training_days_available", 0), 0)
-    resources = fitness_profile.get("available_resources", "Not set")
-    challenge = fitness_profile.get("current_challenge", "Not set")
-    pace = status.get("pace_status", "Not set")
-    pounds_per_week = status.get("pounds_per_week", 0.0)
-
-    options = []
-    if pace == "Aggressive":
-        options.extend([
-            "Option A: Tighten execution hard across nutrition, steps, recovery, and training consistency.",
-            "Option B: Add 1 training day if recovery and schedule can support it." if days < 6 else "Option B: Training frequency is already high. Improve recovery and precision.",
-            "Option C: Increase weekly calorie expenditure through structured cardio or more daily movement.",
-            "Option D: Extend the deadline slightly for better muscle retention.",
-        ])
-    elif pace == "Demanding":
-        options.extend([
-            "Option A: Improve compliance before increasing volume.",
-            "Option B: Add 1 training day only if sleep and soreness remain controlled." if days < 6 else "Option B: Keep the current frequency and refine execution.",
-            "Option C: Tighten nutrition and keep daily activity more consistent.",
-        ])
-    else:
-        options.extend([
-            "Option A: Keep the plan simple and sustainable.",
-            "Option B: Refine execution quality before adding more workload.",
-        ])
-
-    notes = []
-    notes.append("You now have gym upside." if "gym" in resources.lower() else "Your current resources still favor efficient bodyweight / hybrid structure.")
-    notes.append(f"Current challenge in system: {challenge}.")
-    notes.append(f"Current pace requirement: {pounds_per_week:.2f} lb/week.")
-    if activity_baseline:
-        notes.append(
-            f"Activity target is around {activity_baseline.get('active_calories_daily', 0):.0f} active calories and {activity_baseline.get('exercise_minutes_daily', 0):.0f} exercise minutes per day."
-        )
-
     return (
         "Architect Fitness Adjustment:\n"
-        f"- Current mode: {mode}\n"
-        f"- Current phase: {phase}\n"
-        f"- Training days available: {days}\n"
-        f"- Resources: {resources}\n"
-        f"- Pace status: {pace}\n"
-        f"- Required weekly pace: {pounds_per_week:.2f} lb/week\n\n"
-        "Adjustment options:\n"
-        + "\n".join([f"- {x}" for x in options]) +
-        "\n\nIntelligent notes:\n" +
-        "\n".join([f"- {x}" for x in notes])
+        f"- Current mode: {fitness_profile.get('current_training_mode', 'Not set')}\n"
+        f"- Current phase: {fitness_profile.get('current_phase', 'Not set')}\n"
+        f"- Training days available: {fitness_profile.get('training_days_available', 0)}\n"
+        f"- Resources: {fitness_profile.get('available_resources', 'Not set')}\n"
+        f"- Pace status: {status.get('pace_status', 'Not set')}\n"
+        f"- Required weekly pace: {status.get('pounds_per_week', 0):.2f} lb/week"
     )
 
 
 def build_weekly_workout_plan(user_id: str) -> str:
-    user = get_memory().get(user_id, {})
-    phase_data = user.get("user_workout_engine", {})
+    phase_data = get_memory().get(user_id, {}).get("user_workout_engine", {})
     workout_phase = phase_data.get("workout_phase", "not set")
     phase_duration_weeks = phase_data.get("phase_duration_weeks", 0)
     gym_mode = has_gym_access(user_id)
@@ -912,13 +1181,11 @@ def build_today_workout(user_id: str) -> str:
     if not block:
         return "I couldn't determine today's workout."
 
-    user = get_memory().get(user_id, {})
-    phase_data = user.get("user_workout_engine", {})
+    phase_data = get_memory().get(user_id, {}).get("user_workout_engine", {})
     workout_phase = phase_data.get("workout_phase", "not set")
     phase_duration_weeks = phase_data.get("phase_duration_weeks", 0)
     gym_mode = has_gym_access(user_id)
     exercises = block["gym"] if gym_mode else block["home"]
-    mode_label = "gym/hybrid" if gym_mode else "home/bodyweight"
 
     lines = [
         "Architect Today Workout:",
@@ -927,8 +1194,6 @@ def build_today_workout(user_id: str) -> str:
         f"- Focus: {block['focus']}",
         f"- Workout phase: {workout_phase}",
         f"- Phase duration: {phase_duration_weeks} week(s)",
-        f"- Build mode used: {mode_label}",
-        f"- Extra equipment: {build_equipment_modifier_text(user_id)}",
         "",
         "Today's exercises:",
     ]
@@ -939,46 +1204,33 @@ def build_today_workout(user_id: str) -> str:
 def build_pushup_plan(user_id: str, total_target: int = 300, max_set: int = 25) -> str:
     total_target = total_target if total_target > 0 else 300
     max_set = max_set if max_set > 0 else 25
-    option_25_sets = total_target // 25
-    remainder_25 = total_target % 25
 
-    lines = [
-        "Architect Push-Up Plan:",
-        f"- Daily target: {total_target}",
-        f"- Current max set: {max_set}",
-        "",
-        "Recommended options:",
-        "- Option 1: 15 sets of 20 = 300 total",
-        f"- Option 2: 12 sets of 25 = 300 total" if remainder_25 == 0 else f"- Option 2: {option_25_sets} sets of 25 + 1 finisher set of {remainder_25}",
-        "- Option 3: EMOM style — 10 to 15 reps every hour across the day until target is complete",
-    ]
-    return "\n".join(lines)
+    return (
+        "Architect Push-Up Plan:\n"
+        f"- Daily target: {total_target}\n"
+        f"- Current max set: {max_set}\n\n"
+        "Recommended options:\n"
+        "- Option 1: 15 sets of 20 = 300 total\n"
+        "- Option 2: 12 sets of 25 = 300 total\n"
+        "- Option 3: EMOM style — 10 to 15 reps every hour across the day until target is complete"
+    )
 
 
 def build_activity_report(user_id: str) -> str:
     user = get_memory().get(user_id, {})
-    baseline = user.get("activity_baseline", {})
     logs = user.get("activity_logs", [])
-    if not baseline and not logs:
-        return "No activity data saved yet. Use !architect set-activity-baseline and !architect log-activity."
+    if not logs:
+        return "No activity data saved yet. Use !architect log-activity."
 
-    today = today_dr()
-    today_logs = [x for x in logs if x.get("date") == today]
-
+    today_logs = [x for x in logs if x.get("date") == today_dr()]
     total_logs = len(logs)
-    avg_active = sum(x.get("active_calories", 0) for x in logs) / total_logs if total_logs else 0
-    avg_exercise = sum(x.get("exercise_minutes", 0) for x in logs) / total_logs if total_logs else 0
-    avg_steps = sum(x.get("steps", 0) for x in logs) / total_logs if total_logs else 0
 
     return (
         "Architect Activity Report:\n"
         f"- Activity sessions logged: {total_logs}\n"
         f"- Today's active calories: {sum(x.get('active_calories', 0) for x in today_logs):.0f}\n"
         f"- Today's exercise minutes: {sum(x.get('exercise_minutes', 0) for x in today_logs):.0f}\n"
-        f"- Today's steps: {sum(x.get('steps', 0) for x in today_logs)}\n"
-        f"- Average active calories per session: {avg_active:.0f}\n"
-        f"- Average exercise minutes per session: {avg_exercise:.0f}\n"
-        f"- Average steps per session: {avg_steps:.0f}"
+        f"- Today's steps: {sum(x.get('steps', 0) for x in today_logs)}"
     )
 
 
@@ -997,19 +1249,21 @@ def build_knowledge_report(user_id: str):
         report += f"\nLatest idea:\n- {ideas[-1]['text']}\n"
     return report
 
-
 def build_pnl_report(user_id: str):
     pnl_logs = get_memory().get(user_id, {}).get("pnl_logs", [])
     if not pnl_logs:
         return "No PnL logs saved yet. Use !architect log-pnl 250"
+
     total = sum(x["value"] for x in pnl_logs)
     avg_day = total / len(pnl_logs)
     green = sum(1 for x in pnl_logs if x["value"] > 0)
     red = sum(1 for x in pnl_logs if x["value"] < 0)
     flat = sum(1 for x in pnl_logs if x["value"] == 0)
+
     best_day = max(pnl_logs, key=lambda x: x["value"])
     worst_day = min(pnl_logs, key=lambda x: x["value"])
     today_total = sum(x["value"] for x in pnl_logs if x["date"] == today_dr())
+
     return (
         "PnL Report:\n"
         f"- Days logged: {len(pnl_logs)}\n"
@@ -1029,40 +1283,30 @@ def build_daily_report(user_id: str):
     trades = get_trades().get(user_id, [])
     today = today_dr()
 
+    sleep_today = [x for x in memory.get("sleep_logs", []) if x["date"] == today]
+    mood_today = [x for x in memory.get("mood_logs", []) if x["date"] == today]
+    focus_today = [x for x in memory.get("focus_logs", []) if x["date"] == today]
     habits_today = [x for x in memory.get("habits", []) if x["timestamp"][:10] == today]
+    workouts_today = [x for x in memory.get("workouts", []) if x["date"] == today]
     notes_today = [x for x in memory.get("notes", []) if x["timestamp"][:10] == today]
     ideas_today = [x for x in memory.get("ideas", []) if x["timestamp"][:10] == today]
     pnl_today = [x for x in memory.get("pnl_logs", []) if x["date"] == today]
     wins_today = [x for x in memory.get("wins", []) if x["date"] == today]
     mistakes_today = [x for x in memory.get("mistakes", []) if x["date"] == today]
     trades_today = [x for x in trades if x["timestamp"][:10] == today]
-    sleep_today = [x for x in memory.get("sleep_logs", []) if x["date"] == today]
-    mood_today = [x for x in memory.get("mood_logs", []) if x["date"] == today]
-    focus_today = [x for x in memory.get("focus_logs", []) if x["date"] == today]
-    workouts_today = [x for x in memory.get("workouts", []) if x["date"] == today]
-    activity_today = [x for x in memory.get("activity_logs", []) if x["date"] == today]
-    checkins_today = [x for x in memory.get("checkins", []) if x["timestamp"][:10] == today]
-
-    latest_checkin = "No check-in today"
-    if checkins_today:
-        c = checkins_today[-1]
-        latest_checkin = f"Energy {c['energy']} | Motivation {c['motivation']} | Focus {c['focus']}"
 
     return (
         "Architect Daily System Report:\n"
         f"- Date: {today}\n"
-        f"- Sleep: {sleep_today[-1]['hours']} hrs" if sleep_today else "Architect Daily System Report:\n"
-        f"- Date: {today}\n"
-        f"- Sleep: No sleep logged"
+        f"- Sleep: {sleep_today[-1]['hours']} hrs\n" if sleep_today else "Architect Daily System Report:\n"
+        f"- Date: {today}\n- Sleep: No sleep logged\n"
     ) + (
-        f"\n- Mood: {mood_today[-1]['score']}" if mood_today else "\n- Mood: No mood logged"
+        f"- Mood: {mood_today[-1]['score']}\n" if mood_today else "- Mood: No mood logged\n"
     ) + (
-        f"\n- Focus: {focus_today[-1]['score']}" if focus_today else "\n- Focus: No focus logged"
+        f"- Focus: {focus_today[-1]['score']}\n" if focus_today else "- Focus: No focus logged\n"
     ) + (
-        f"\n- Check-in: {latest_checkin}\n"
         f"- Habits logged today: {len(habits_today)}\n"
         f"- Workouts logged today: {len(workouts_today)}\n"
-        f"- Activity sessions today: {len(activity_today)}\n"
         f"- Notes saved today: {len(notes_today)}\n"
         f"- Ideas saved today: {len(ideas_today)}\n"
         f"- Wins logged today: {len(wins_today)}\n"
@@ -1075,35 +1319,19 @@ def build_daily_report(user_id: str):
 def build_week_plan(user_id: str):
     user = get_memory().get(user_id, {})
     context = user.get("context", {})
-    fp = user.get("fitness_profile", {})
-    ab = user.get("activity_baseline", {})
     focus_text = ", ".join(context.get("week_focus", [])) if context.get("week_focus") else "Not set"
     watchlist_text = ", ".join(context.get("watchlist", [])) if context.get("watchlist") else "Not set"
     latest_goal = context.get("daily_goals", [])[-1]["text"] if context.get("daily_goals") else "No daily goal set"
 
-    lines = [
-        "Architect Week Plan:",
-        f"- Week mode: {context.get('week_mode', 'Not set')}",
-        f"- Week focus: {focus_text}",
-        f"- Training mode: {context.get('training_mode', 'Not set')}",
-        f"- Nutrition mode: {context.get('nutrition_mode', 'Not set')}",
-    ]
-    if fp:
-        lines.extend([
-            f"- Current phase: {fp.get('current_phase', 'Not set')}",
-            f"- Training days available: {fp.get('training_days_available', 0)}",
-            f"- Current challenge: {fp.get('current_challenge', 'Not set')}",
-        ])
-    if ab:
-        lines.extend([
-            f"- Activity target calories: {ab.get('active_calories_daily', 0):.0f}",
-            f"- Activity target exercise minutes: {ab.get('exercise_minutes_daily', 0):.0f}",
-        ])
-    lines.extend([
-        f"- Watchlist: {watchlist_text}",
-        f"- Latest daily goal: {latest_goal}",
-    ])
-    return "\n".join(lines)
+    return (
+        "Architect Week Plan:\n"
+        f"- Week mode: {context.get('week_mode', 'Not set')}\n"
+        f"- Week focus: {focus_text}\n"
+        f"- Training mode: {context.get('training_mode', 'Not set')}\n"
+        f"- Nutrition mode: {context.get('nutrition_mode', 'Not set')}\n"
+        f"- Watchlist: {watchlist_text}\n"
+        f"- Latest daily goal: {latest_goal}"
+    )
 
 
 def build_morning_brief(user_id: str):
@@ -1113,15 +1341,10 @@ def build_morning_brief(user_id: str):
     body_goal = user.get("body_goal", {})
     fp = user.get("fitness_profile", {})
     tg = user.get("transformation_goal", {})
-    ab = user.get("activity_baseline", {})
-
-    today = today_dr()
     today_pretty = dr_now().strftime("%A, %B %d, %Y")
-    sleep_today = [x for x in user.get("sleep_logs", []) if x["date"] == today] or user.get("sleep_logs", [])[-1:]
-    mood_today = [x for x in user.get("mood_logs", []) if x["date"] == today] or user.get("mood_logs", [])[-1:]
-    focus_today = [x for x in user.get("focus_logs", []) if x["date"] == today] or user.get("focus_logs", [])[-1:]
 
     lines = ["Architect Morning Brief:", f"- Date: {today_pretty}"]
+
     if body_baseline:
         lines.append(f"- Body baseline: {body_baseline.get('weight_lb', 0):.1f} lb | BF {body_baseline.get('body_fat_percent', 0):.1f}% | BMI {body_baseline.get('bmi', 0):.1f}")
     if body_goal:
@@ -1129,11 +1352,8 @@ def build_morning_brief(user_id: str):
     if fp:
         lines.append(f"- Current phase: {fp.get('current_phase', 'Not set')}")
         lines.append(f"- Fitness mode: {fp.get('current_training_mode', 'Not set')}")
-        lines.append(f"- Current challenge: {fp.get('current_challenge', 'Not set')}")
     if tg:
         lines.append(f"- Transformation deadline: {tg.get('deadline_date', 'Not set')}")
-    if ab:
-        lines.append(f"- Activity baseline: {ab.get('active_calories_daily', 0):.0f} cal | {ab.get('exercise_minutes_daily', 0):.0f} min | {ab.get('steps_daily', 0)} steps")
 
     today_name = dr_now().strftime("%A").lower()
     today_block = WEEKLY_WORKOUT_LIBRARY.get(today_name)
@@ -1147,11 +1367,9 @@ def build_morning_brief(user_id: str):
         f"- Nutrition mode: {context.get('nutrition_mode', 'Not set')}",
         f"- Daily goal: {context.get('daily_goals', [])[-1]['text'] if context.get('daily_goals') else 'No daily goal set'}",
         f"- Watchlist: {', '.join(context.get('watchlist', [])) if context.get('watchlist') else 'Not set'}",
-        f"- Sleep: {sleep_today[-1]['hours']} hrs" if sleep_today else "- Sleep: Not logged",
-        f"- Mood: {mood_today[-1]['score']}" if mood_today else "- Mood: Not logged",
-        f"- Focus: {focus_today[-1]['score']}" if focus_today else "- Focus: Not logged",
         "- Recommendation: Stay disciplined, execute the plan, and log your data.",
     ])
+
     return "\n".join(lines)
 
 
@@ -1159,16 +1377,16 @@ def build_profile_text(user_id: str) -> str:
     user = get_memory().get(user_id, {})
     user_trades = get_trades().get(user_id, [])
     lines = ["Profile snapshot:"]
+
     profile = user.get("profile", {})
     if profile:
         lines.append(f"- Birth date: {profile.get('birth_date', 'Not set')}")
         lines.append(f"- Birth time: {profile.get('birth_time', 'Not set')}")
+
     if user.get("body_baseline"):
         bb = user["body_baseline"]
         lines.append(f"- Body baseline: {bb.get('weight_lb', 0):.1f} lb | BF {bb.get('body_fat_percent', 0):.1f}% | BMI {bb.get('bmi', 0):.1f}")
-    if user.get("body_goal"):
-        bg = user["body_goal"]
-        lines.append(f"- Body goal: {bg.get('target_weight_low_lb', 0):.1f} to {bg.get('target_weight_high_lb', 0):.1f} lb | BF {bg.get('target_body_fat_percent', 0):.1f}%")
+
     lines.append(f"- Total trades logged: {len(user_trades)}")
     return "\n".join(lines)
 
@@ -1176,6 +1394,7 @@ def build_profile_text(user_id: str) -> str:
 def build_weekly_report(user_id: str) -> str:
     user = get_memory().get(user_id, {})
     trades = get_trades().get(user_id, [])
+
     return (
         "Weekly performance snapshot:\n"
         f"- Weight logs: {len(user.get('weights', []))}\n"
@@ -1228,7 +1447,14 @@ def log_trade_structured(user_id: str, instrument: str, entry: float, stop: floa
     })
     trades[user_id] = user_trades
     save_trades(trades)
-    return {"risk_pts": risk_pts, "target_pts": target_pts, "result_pts": result_pts, "planned_r": planned_r, "realized_r": realized_r}
+
+    return {
+        "risk_pts": risk_pts,
+        "target_pts": target_pts,
+        "result_pts": result_pts,
+        "planned_r": planned_r,
+        "realized_r": realized_r,
+    }
 
 
 def get_structured_trades(user_id: str):
@@ -1239,18 +1465,16 @@ def build_trade_stats(user_id: str) -> str:
     structured = get_structured_trades(user_id)
     if not structured:
         return "No structured trades logged yet. Use !architect trade-log MNQ 18450 18420 18520 breakout_retest 18515"
+
     total = len(structured)
     wins = sum(1 for t in structured if t.get("result_pts", 0) > 0)
     losses = sum(1 for t in structured if t.get("result_pts", 0) < 0)
     breakeven = sum(1 for t in structured if t.get("result_pts", 0) == 0)
+
     avg_result = sum(t.get("result_pts", 0) for t in structured) / total
     avg_realized_r = sum(t.get("realized_r", 0) for t in structured) / total
     avg_planned_r = sum(t.get("planned_r", 0) for t in structured) / total
-    setup_counts = {}
-    for t in structured:
-        setup = t.get("setup", "unknown")
-        setup_counts[setup] = setup_counts.get(setup, 0) + 1
-    best_setup = max(setup_counts, key=setup_counts.get) if setup_counts else "N/A"
+
     return (
         "Trading stats:\n"
         f"- Total structured trades: {total}\n"
@@ -1260,8 +1484,7 @@ def build_trade_stats(user_id: str) -> str:
         f"- Win rate: {(wins / total) * 100:.1f}%\n"
         f"- Average result (pts): {avg_result:.2f}\n"
         f"- Average realized R: {avg_realized_r:.2f}\n"
-        f"- Average planned R: {avg_planned_r:.2f}\n"
-        f"- Most used setup: {best_setup}"
+        f"- Average planned R: {avg_planned_r:.2f}"
     )
 
 
@@ -1269,23 +1492,19 @@ def build_dashboard(user_id: str) -> str:
     structured = get_structured_trades(user_id)
     if not structured:
         return "No structured trades logged yet. Use !architect trade-log MNQ 18450 18420 18520 breakout_retest 18515"
+
     total = len(structured)
     wins = sum(1 for t in structured if t.get("result_pts", 0) > 0)
-    losses = sum(1 for t in structured if t.get("result_pts", 0) < 0)
     total_points = sum(t.get("result_pts", 0) for t in structured)
     total_realized_r = sum(t.get("realized_r", 0) for t in structured)
-    best_trade = max(structured, key=lambda t: t.get("result_pts", 0))
-    worst_trade = min(structured, key=lambda t: t.get("result_pts", 0))
+
     return (
         "Architect Trading Dashboard:\n"
         f"- Total structured trades: {total}\n"
         f"- Wins: {wins}\n"
-        f"- Losses: {losses}\n"
         f"- Win rate: {(wins / total) * 100:.1f}%\n"
         f"- Total points: {total_points:.2f}\n"
-        f"- Total realized R: {total_realized_r:.2f}\n"
-        f"- Best trade: {best_trade.get('instrument', 'N/A')} | {best_trade.get('setup', 'N/A')} | {best_trade.get('result_pts', 0):.2f} pts\n"
-        f"- Worst trade: {worst_trade.get('instrument', 'N/A')} | {worst_trade.get('setup', 'N/A')} | {worst_trade.get('result_pts', 0):.2f} pts"
+        f"- Total realized R: {total_realized_r:.2f}"
     )
 
 
@@ -1297,6 +1516,7 @@ def build_coach_report(user_id: str) -> str:
     avg_planned_r = sum(t.get("planned_r", 0) for t in structured) / total
     avg_realized_r = sum(t.get("realized_r", 0) for t in structured) / total
     capture_ratio = avg_realized_r / avg_planned_r if avg_planned_r else 0
+
     return (
         "Architect Coach Report:\n"
         f"- Total structured trades reviewed: {total}\n"
@@ -1308,7 +1528,6 @@ def build_coach_report(user_id: str) -> str:
         "- Compare best setup vs all others after more sample size.\n"
         "- Watch whether realized R keeps lagging planned R."
     )
-
 
 async def send_automatic_morning_brief(guild: discord.Guild):
     guild_id = str(guild.id)
@@ -1335,9 +1554,12 @@ async def post_morning_brief_to_system_channel(guild: discord.Guild, user_id: st
     channel = get_system_channel(guild, "mission_brief")
     if channel is None:
         return False, "I couldn’t find #mission-brief in this server."
+
     register_guild_user(str(guild.id), user_id)
+
     if not has_meaningful_brief_data(user_id):
         return False, "I found #mission-brief, but your Architect profile is still blank, so I stopped the post."
+
     await channel.send(build_morning_brief(user_id))
     set_last_morning_brief_date(str(guild.id), today_dr())
     return True, f"Morning brief posted in #{channel.name}."
@@ -1345,6 +1567,7 @@ async def post_morning_brief_to_system_channel(guild: discord.Guild, user_id: st
 
 async def run_ai_reply(message: discord.Message, prompt: str):
     system_prompt = get_channel_mode(message.channel.name)
+
     async with message.channel.typing():
         response = ai_client.responses.create(
             model="gpt-5-mini",
@@ -1353,6 +1576,7 @@ async def run_ai_reply(message: discord.Message, prompt: str):
                 {"role": "user", "content": prompt},
             ],
         )
+
     reply = response.output_text or "I understood you, but I didn’t get usable text back."
     chunks = [reply[i:i + 1900] for i in range(0, len(reply), 1900)]
     for chunk in chunks:
@@ -1360,44 +1584,77 @@ async def run_ai_reply(message: discord.Message, prompt: str):
 
 
 async def trigger_event(bot_client, event: str):
+    ensure_operating_day_state()
+    task = get_task_state(event)
+    if task is None:
+        return
+
     for guild in bot_client.guilds:
         if event == "wake":
-            daily_state["wake"] = True
-            await send_to_department(guild, "system_core", "🌅 Wake up. New day. Lock in.")
+            message = "🌅 Wake up. New day. Lock in."
         elif event == "movement":
-            daily_state["movement"] = True
-            await send_to_department(guild, "fitness_lab", "🧘 Time for movement / yoga. Activate your body.")
+            message = "🧘 Time for movement / yoga. Activate your body."
         elif event == "breakfast":
-            daily_state["breakfast"] = True
-            await send_to_department(guild, "nutrition_lab", "🍳 Breakfast time. Fuel your system. Log your meal.")
-        elif event in ("trading_brief", "premarket_check"):
-            daily_state["premarket"] = True
-            await send_to_department(guild, "trading_desk", "📊 Trading briefing. Align your bias and prepare." if event == "trading_brief" else "⏰ Premarket check. Be ready for execution.")
+            message = "🍳 Breakfast time. Fuel your system. Log your meal."
+        elif event == "trading_brief":
+            message = "📊 Trading briefing. Align your bias and prepare."
+        elif event == "premarket_check":
+            message = "⏰ Premarket check. Be ready for execution."
         elif event == "lunch":
-            daily_state["lunch"] = True
-            await send_to_department(guild, "nutrition_lab", "🥗 Lunch time. Eat clean. Stay sharp.")
+            message = "🥗 Lunch time. Eat clean. Stay sharp."
         elif event == "trade_talk_prompt":
-            daily_state["trade_talk_set"] = True
-            await send_to_department(guild, "trading_desk", "🧠 What time do you want to review your trades today?")
+            message = "🧠 What time do you want to review your trades today?"
         elif event == "recap":
-            daily_state["recap"] = True
-            await send_to_department(guild, "trading_desk", "📉 Market recap. What happened today?")
+            message = "📉 Market recap. What happened today?"
         elif event == "reflection":
-            daily_state["reflection"] = True
-            await send_to_department(guild, "cosmic_reflection", "🌙 Reflection time. What did you learn today?")
+            message = "🌙 Reflection time. What did you learn today?"
+        else:
+            message = f"Task triggered: {task['label']}"
+
+        await send_to_department(guild, task["department"], message)
+
+    mark_task_prompt_sent(event)
+
+
+async def auto_follow_up_check(bot_client):
+    ensure_operating_day_state()
+    overdue_tasks = get_overdue_tasks(dr_now().strftime("%H:%M"))
+
+    if not overdue_tasks:
+        return
+
+    for task in overdue_tasks:
+        if task["follow_up_sent"]:
+            continue
+
+        for guild in bot_client.guilds:
+            message = (
+                "⚠️ ARCHITECT FOLLOW-UP\n\n"
+                f"Overdue:\n- {task['label']}\n\n"
+                "Prompt:\n"
+                f"{task['follow_up_prompt']}"
+            )
+            await send_to_department(guild, task["department"], message)
+
+        mark_task_follow_up_sent(task["id"])
 
 
 async def scheduler_loop(bot_client):
     await bot_client.wait_until_ready()
+
     while not bot_client.is_closed():
+        ensure_operating_day_state()
         now = dr_now().strftime("%H:%M")
+
         for time_str, event in SCHEDULE.items():
             if now == time_str:
-                today_key = f"{time_str}-{dr_now().date()}"
+                today_key = f"{time_str}-{today_dr()}"
                 if last_triggered.get(today_key):
                     continue
                 last_triggered[today_key] = True
                 await trigger_event(bot_client, event)
+
+        await auto_follow_up_check(bot_client)
         await asyncio.sleep(60)
 
 
@@ -1406,6 +1663,7 @@ async def morning_brief_loop():
     now = dr_now()
     if now.hour != MORNING_BRIEF_HOUR or now.minute != MORNING_BRIEF_MINUTE:
         return
+
     for guild in bot.guilds:
         try:
             await send_automatic_morning_brief(guild)
@@ -1417,11 +1675,14 @@ async def morning_brief_loop():
 async def before_morning_brief_loop():
     await bot.wait_until_ready()
 
+
 @bot.event
 async def on_ready():
     print(f"Bot connected as {bot.user}")
+
     if not morning_brief_loop.is_running():
         morning_brief_loop.start()
+
     if not hasattr(bot, "_architect_scheduler_started"):
         bot._architect_scheduler_started = True
         bot.loop.create_task(scheduler_loop(bot))
@@ -1443,6 +1704,7 @@ async def on_message(message: discord.Message):
 
     command, body = split_command_and_body(prompt)
     user_id = get_user_key(message)
+    ensure_operating_day_state()
 
     if message.guild is not None:
         register_guild_user(str(message.guild.id), user_id)
@@ -1458,6 +1720,14 @@ async def on_message(message: discord.Message):
                 return
             ok, result_text = await post_morning_brief_to_system_channel(message.guild, user_id)
             await message.channel.send(result_text)
+            return
+
+        if command == "day-status":
+            await message.channel.send(build_day_status_report())
+            return
+
+        if command == "follow-up-check":
+            await message.channel.send(build_follow_up_report())
             return
 
         if command == "save-book":
@@ -1501,14 +1771,12 @@ async def on_message(message: discord.Message):
             return
 
         if command == "notes":
-            user = get_memory().get(user_id, {})
-            notes = user.get("notes", [])
+            notes = get_memory().get(user_id, {}).get("notes", [])
             await message.channel.send("No notes saved yet." if not notes else "Saved notes:\n" + "\n".join([f"- {n['text']}" for n in notes[-10:]]))
             return
 
         if command == "ideas":
-            user = get_memory().get(user_id, {})
-            ideas = user.get("ideas", [])
+            ideas = get_memory().get(user_id, {}).get("ideas", [])
             await message.channel.send("No ideas saved yet." if not ideas else "Saved ideas:\n" + "\n".join([f"- {i['text']}" for i in ideas[-10:]]))
             return
 
@@ -2160,69 +2428,6 @@ async def on_message(message: discord.Message):
                 "FOCUS:\n- Primary: MNQ / NAS100\n- Secondary: US30\n- Confirmation: ES\n\n"
                 "ENTRY MODEL:\n- Sweep → reclaim → BOS → pullback → entry\n- VWAP / EMA confluence required\n\n"
                 "EXECUTION RULES:\n- Do not chase\n- Do not predict, react\n- No structure = no trade\n"
-            )
-            return
-
-        if command == "day-status":
-            completed = [key for key, value in daily_state.items() if value]
-            missing = [key for key, value in daily_state.items() if not value]
-            completed_text = "\n".join([f"- {item}" for item in completed]) if completed else "- none yet"
-            missing_text = "\n".join([f"- {item}" for item in missing]) if missing else "- nothing missing"
-            await message.channel.send(
-                "ARCHITECT DAY STATUS\n\n"
-                f"Completed: {len(completed)}/{len(daily_state)}\n\n"
-                "Done today:\n"
-                f"{completed_text}\n\n"
-                "Still missing:\n"
-                f"{missing_text}\n\n"
-                "Next move:\n"
-                "Complete the highest-priority missing items first."
-            )
-            return
-
-        if command == "follow-up-check":
-            missing = [key for key, value in daily_state.items() if not value]
-            if not missing:
-                await message.channel.send(
-                    "ARCHITECT FOLLOW-UP\n\n"
-                    "✅ Everything on your tracked list is complete today.\n"
-                    "Good work. Stay sharp and close strong."
-                )
-                return
-
-            priority_order = [
-                "wake",
-                "movement",
-                "breakfast",
-                "premarket",
-                "lunch",
-                "trade_talk_set",
-                "recap",
-                "reflection",
-            ]
-
-            next_missing = None
-            for item in priority_order:
-                if item in missing:
-                    next_missing = item
-                    break
-
-            follow_up_messages = {
-                "wake": "You still have not checked in for wake-up. Start the day and reset the tone now.",
-                "movement": "Movement is still missing. Get at least a short mobility or yoga block done.",
-                "breakfast": "Breakfast is still missing. Fuel up and log your meal.",
-                "premarket": "Premarket is still missing. Get aligned before execution.",
-                "lunch": "Lunch is still missing. Eat clean and keep energy stable.",
-                "trade_talk_set": "You still have not set today’s trade talk. Lock in a review time.",
-                "recap": "Recap is still missing. Review the market before the day closes.",
-                "reflection": "Reflection is still missing. Close the day with intention.",
-            }
-
-            await message.channel.send(
-                "ARCHITECT FOLLOW-UP\n\n"
-                f"Most important missing item:\n- {next_missing}\n\n"
-                "Prompt:\n"
-                f"{follow_up_messages.get(next_missing, 'Handle the next missing item now.')}"
             )
             return
 
