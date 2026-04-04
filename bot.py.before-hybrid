@@ -1677,39 +1677,14 @@ async def on_message(message: discord.Message):
     if message.author == bot.user:
         return
 
-        content = message.content.strip()
-
-    channel_name = message.channel.name.lower() if hasattr(message.channel, "name") and message.channel.name else ""
-    is_control_room = channel_name == "architect-control-room"
-
-    invoked_by_command = content.startswith("!architect")
-    invoked_by_draco = is_control_room and (
-        content.lower().startswith("draco ") or
-        content.lower().startswith("@draco ") or
-        content.lower().startswith("draco,") or
-        content.lower().startswith("draco:")
-    )
-
-    if not invoked_by_command and not invoked_by_draco:
+    content = message.content.strip()
+    if not content.startswith("!architect"):
         return
 
-    if invoked_by_command:
-        prompt = extract_prompt(content)
-        if not prompt:
-            await message.channel.send("Give me something after !architect.")
-            return
-    else:
-        prompt = content
-        lowered = prompt.lower()
-
-        for prefix in ["draco ", "@draco ", "draco,", "draco:"]:
-            if lowered.startswith(prefix):
-                prompt = prompt[len(prefix):].strip()
-                break
-
-        if not prompt:
-            await message.channel.send("Give me something after Draco.")
-            return
+    prompt = extract_prompt(content)
+    if not prompt:
+        await message.channel.send("Give me something after !architect.")
+        return
 
     command, body = split_command_and_body(prompt)
     user_id = get_user_key(message)
